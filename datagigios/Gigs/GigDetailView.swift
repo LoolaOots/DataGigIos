@@ -1,0 +1,321 @@
+//
+//  GigDetailView.swift
+//  datagigios
+//
+
+import SwiftUI
+
+struct GigDetailView: View {
+    let gigId: String
+    let session: Session?
+    let existingApplications: [Application]
+
+    @State private var viewModel: GigDetailViewModel
+    @State private var showAuth = false
+    @State private var navigateToApply = false
+
+    init(gigId: String, session: Session? = nil, existingApplications: [Application] = []) {
+        self.gigId = gigId
+        self.session = session
+        self.existingApplications = existingApplications
+        _viewModel = State(initialValue: GigDetailViewModel(
+            gigId: gigId,
+            session: session,
+            existingApplications: existingApplications
+        ))
+    }
+
+    var body: some View {
+        Group {
+            if viewModel.isLoading && viewModel.gig == nil {
+                ProgressView("Loading…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let errorMessage = viewModel.error, viewModel.gig == nil {
+                ContentUnavailableView(
+                    "Failed to Load",
+                    systemImage: "exclamationmark.triangle.fill",
+                    description: Text(errorMessage)
+                )
+            } else if let gig = viewModel.gig {
+                gigDetailContent(gig: gig)
+            }
+        }
+        .navigationTitle(viewModel.gig?.title ?? "Gig Detail")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await viewModel.loadGig()
+        }
+        .sheet(isPresented: $showAuth) {
+            AuthView()
+        }
+        .navigationDestination(isPresented: $navigateToApply) {
+            if let gig = viewModel.gig, let session {
+                ApplyView(gig: gig, session: session)
+            }
+        }
+    }
+
+    // MARK: - Detail content
+
+    private func gigDetailContent(gig: GigDetail) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Header info
+                GigHeaderSection(gig: gig)
+
+                Divider()
+
+                // Description
+                GigDescriptionSection(description: gig.description)
+
+                Divider()
+
+                // Device types
+                GigDeviceTypesSection(deviceTypes: gig.deviceTypes)
+
+                Divider()
+
+                // Labels
+                GigLabelsSection(labels: gig.labels)
+
+                // Bottom padding for sticky button
+                Spacer().frame(height: 80)
+            }
+            .padding()
+        }
+        .safeAreaInset(edge: .bottom) {
+            applyButton(gig: gig)
+                .padding()
+                .background(.regularMaterial)
+        }
+    }
+
+    // MARK: - Apply button
+
+    @ViewBuilder
+    private func applyButton(gig: GigDetail) -> some View {
+        switch viewModel.applyState {
+        case .signInRequired:
+            Button("Sign in to Apply") {
+                showAuth = true
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity, minHeight: 50)
+
+        case .canApply:
+            Button("Apply to Gig") {
+                navigateToApply = true
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity, minHeight: 50)
+
+        case .applied:
+            Button("Applied ✓") {}
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .disabled(true)
+        }
+    }
+}
+
+// MARK: - GigHeaderSection
+
+private struct GigHeaderSection: View {
+    let gig: GigDetail
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(gig.title)
+                .font(.title2)
+                .bold()
+
+            Text(gig.companyName)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 16) {
+                Label(
+                    gig.activityType.replacing("_", with: " ").capitalized,
+                    systemImage: "figure.run"
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Text(payoutRange(gig: gig))
+                    .font(.subheadline)
+                    .bold()
+                    .foregroundStyle(.green)
+            }
+
+            HStack(spacing: 8) {
+                Text("\(gig.filledSlots) / \(gig.totalSlots) slots filled")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                StatusBadge(status: gig.status)
+            }
+        }
+    }
+
+    private func payoutRange(gig: GigDetail) -> String {
+        let min = (Double(gig.minRateCents) / 100).formatted(.currency(code: "USD"))
+        let max = (Double(gig.maxRateCents) / 100).formatted(.currency(code: "USD"))
+        return "\(min)–\(max)"
+    }
+}
+
+// MARK: - GigDescriptionSection
+
+private struct GigDescriptionSection: View {
+    let description: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("About this Gig")
+                .font(.headline)
+            Text(description)
+                .font(.body)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - GigDeviceTypesSection
+
+private struct GigDeviceTypesSection: View {
+    let deviceTypes: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Required Devices")
+                .font(.headline)
+
+            HStack(spacing: 8) {
+                ForEach(deviceTypes, id: \.self) { deviceType in
+                    Label(deviceTypeLabel(deviceType), systemImage: deviceTypeIcon(deviceType))
+                        .font(.subheadline)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.tint.opacity(0.12), in: .capsule)
+                        .foregroundStyle(.tint)
+                }
+            }
+        }
+    }
+
+    private func deviceTypeIcon(_ type: String) -> String {
+        switch type {
+        case "apple_watch": return "applewatch"
+        case "generic_android": return "iphone.gen1"
+        default: return "iphone"
+        }
+    }
+
+    private func deviceTypeLabel(_ type: String) -> String {
+        switch type {
+        case "apple_watch": return "Apple Watch"
+        case "generic_android": return "Android"
+        default: return "iPhone"
+        }
+    }
+}
+
+// MARK: - GigLabelsSection
+
+private struct GigLabelsSection: View {
+    let labels: [GigLabel]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Labels")
+                .font(.headline)
+
+            ForEach(labels) { label in
+                GigLabelRow(label: label)
+            }
+        }
+    }
+}
+
+// MARK: - GigLabelRow
+
+private struct GigLabelRow: View {
+    let label: GigLabel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.labelName)
+                .font(.subheadline)
+                .bold()
+
+            HStack {
+                Label(formattedDuration(label.durationSeconds), systemImage: "clock")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Text((Double(label.rateCents) / 100).formatted(.currency(code: "USD")))
+                    .font(.caption)
+                    .bold()
+                    .foregroundStyle(.green)
+            }
+
+            if let description = label.description {
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 12))
+    }
+
+    private func formattedDuration(_ seconds: Int) -> String {
+        let minutes = seconds / 60
+        let remainingSeconds = seconds % 60
+        if minutes > 0 && remainingSeconds > 0 {
+            return "\(minutes) min \(remainingSeconds) sec"
+        } else if minutes > 0 {
+            return "\(minutes) min"
+        } else {
+            return "\(remainingSeconds) sec"
+        }
+    }
+}
+
+// MARK: - StatusBadge
+
+private struct StatusBadge: View {
+    let status: String
+
+    var body: some View {
+        Text(status.capitalized)
+            .font(.caption)
+            .bold()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(statusColor.opacity(0.15), in: .capsule)
+            .foregroundStyle(statusColor)
+    }
+
+    private var statusColor: Color {
+        switch status {
+        case "open": return .green
+        case "paused": return .orange
+        case "completed", "cancelled": return .red
+        default: return .secondary
+        }
+    }
+}
+
+#Preview {
+    NavigationStack {
+        GigDetailView(gigId: "preview-id")
+    }
+    .environment(AuthRouter())
+}
