@@ -71,6 +71,20 @@ actor APIClient {
         body: (any Encodable)? = nil,
         auth: String? = nil
     ) async throws -> T {
+        do {
+            return try await performRequest(endpoint, method: method, body: body, auth: auth)
+        } catch NetworkError.serverError {
+            // Retry once on server errors (5xx); second failure propagates to the caller
+            return try await performRequest(endpoint, method: method, body: body, auth: auth)
+        }
+    }
+
+    private func performRequest<T: Decodable>(
+        _ endpoint: String,
+        method: String,
+        body: (any Encodable)?,
+        auth: String?
+    ) async throws -> T {
         let baseURL = Config.backendBaseURL
         guard let url = URL(string: baseURL + endpoint) else {
             throw NetworkError.invalidURL

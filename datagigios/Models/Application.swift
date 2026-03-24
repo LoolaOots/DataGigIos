@@ -37,6 +37,7 @@ struct ApplicationDetail: Decodable, Identifiable {
 
 struct ApplicationGigDetail: Decodable {
     let title: String
+    let companyName: String
     let description: String
     let activityType: String
     let dataDeadline: Date?
@@ -48,6 +49,7 @@ struct ApplicationGigDetail: Decodable {
 struct ApplicationLabel: Decodable, Identifiable {
     let id: String
     let labelName: String
+    let description: String?
     let durationSeconds: Int
     let rateCents: Int
 }

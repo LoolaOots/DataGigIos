@@ -10,6 +10,9 @@ struct ApplicationDetailView: View {
     let accessToken: String
 
     @State private var viewModel = ApplicationsViewModel()
+    @State private var permissionsManager = PermissionsManager()
+    @State private var showCollection = false
+    @State private var showPermissionsDenied = false
 
     var body: some View {
         Group {
@@ -30,6 +33,22 @@ struct ApplicationDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadDetail(applicationId: applicationId, accessToken: accessToken)
+        }
+        .navigationDestination(isPresented: $showCollection) {
+            if let detail = viewModel.selectedDetail {
+                GigCollectionView(viewModel: GigCollectionViewModel(detail: detail))
+            }
+        }
+        .navigationDestination(isPresented: $showPermissionsDenied) {
+            PermissionsDeniedView(
+                onGranted: {
+                    showPermissionsDenied = false
+                    showCollection = true
+                },
+                onBack: {
+                    showPermissionsDenied = false
+                }
+            )
         }
     }
 
@@ -69,6 +88,34 @@ struct ApplicationDetailView: View {
                 if let note = detail.noteFromUser {
                     Divider()
                     NoteSection(title: "Your Note", note: note, icon: "person")
+                }
+
+                if detail.status == "accepted" {
+                    VStack(spacing: 12) {
+                        Button {
+                            permissionsManager.check { result in
+                                switch result {
+                                case .granted: showCollection = true
+                                case .denied:  showPermissionsDenied = true
+                                }
+                            }
+                        } label: {
+                            Label("Start Collecting Data", systemImage: "record.circle")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        NavigationLink(destination: GigRecordingsLibraryView(
+                            assignmentCode: detail.assignmentCode ?? "",
+                            gigTitle: detail.gigDetail.title,
+                            companyName: detail.gigDetail.companyName
+                        )) {
+                            Label("View Recordings", systemImage: "list.bullet.rectangle")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding()
                 }
             }
             .padding()

@@ -127,7 +127,18 @@ App root → AuthRouter (checks persisted session in Keychain on launch)
         │     └── "Apply to Gig" → ApplyView (full screen push)
         │           └── success → back to GigDetailView, button shows "Applied ✓"
         └── My Applications card → ApplicationsListView
-              └── tap row → ApplicationDetailView
+              └── tap row → ApplicationDetailView (accepted applications only)
+                    ├── "Start Collecting Data" button → GigCollectionView
+                    │     └── tap label row → "Begin <Label>" sheet → Start button
+                    │           └── 10-sec countdown overlay (green glow, Cancel button)
+                    │                 └── LabelRecordingView (circular timer, REC badge, no live data)
+                    │                       └── recording ends → RecordingSummaryView
+                    │                             ├── Done   → back to GigCollectionView
+                    │                             ├── Submit → (placeholder, upload TBD)
+                    │                             └── Delete → back to GigCollectionView
+                    └── "View Recordings" button → GigRecordingsLibraryView
+                          ├── ⋯ per row → Submit / Delete (single)
+                          └── Select mode → Submit (N) / Delete (N) bottom bar
 ```
 
 AuthView is a single unified screen (no Sign Up / Log In tabs) — both flows are identical since Supabase creates the user automatically on first sign-in.
@@ -235,10 +246,12 @@ Response: {
   "note_from_user": "..." | null,
   "gig_detail": {
     "title": "...", "description": "...", "activity_type": "...", "data_deadline": "ISO8601" | null,
-    "labels": [ { "id": "uuid", "label_name": "...", "duration_seconds": 120, "rate_cents": 500 } ]
+    "company_name": "...",
+    "labels": [ { "id": "uuid", "label_name": "...", "description": "..." | null, "duration_seconds": 120, "rate_cents": 500 } ]
   }
 }
 ```
+`company_name` and label `description` were added to support GigCollectionView and GigRecordingsLibraryView headers.
 
 #### GET /profile
 ```json
@@ -280,13 +293,70 @@ Response: { "submissionId": "uuid" }
 
 ---
 
-## Sensor Data Collection
+## Recording Flow (Data Collection)
+
+### Screens
+- **GigCollectionView** — label list for an accepted application. Header: `<GigTitle> - <CompanyName>`. Labels shown with green left accent bar, duration, rate, description (if any), chevron. Hint at bottom: "Tap any label to begin". Entry point from ApplicationDetailView "Start Collecting Data" button.
+- **LabelRecordingView** — full-screen recording. Label name above red REC badge. Circular red arc timer counts down from `duration_seconds`. No live sensor data shown. "Stop Early" button. Auto-ends when timer reaches zero.
+- **RecordingSummaryView** — shown after recording ends. Displays: label name, recorded duration, frame count. Buttons: **Done** (back to GigCollectionView), **Submit** (placeholder — upload TBD), **Delete** (discard + back).
+- **GigRecordingsLibraryView** — all locally saved recordings for this gig. Title: `<GigTitle> - <CompanyName>`. Flat list ordered newest-first. Each row: timestamp + blue label tag + frame count. ⋯ popover per row (Submit / Delete). "Select" button top-right for bulk mode → bottom bar with Submit (N) / Delete (N).
+
+### Countdown Overlay
+- 10-second full-screen overlay before recording begins.
+- Green glowing number fills screen, counts down 10→0.
+- Label name and rate shown below number.
+- **Cancel** button lets user abort before recording starts.
+
+### Permissions
+- Request location + motion permissions when user taps **"Start Collecting Data"** on ApplicationDetailView.
+- If either permission is denied: show an info screen explaining that phone sensor data requires these permissions and directing user to Settings. Do not proceed to GigCollectionView until granted.
+
+### Multiple Recordings Per Label
+- A label can be recorded unlimited times (up to `quantity_needed` submissions per the company's gig config).
+- All recordings are stored locally — user manages them from GigRecordingsLibraryView.
+- **DB note**: the `submissions` table must support multiple rows per (application_id, gig_label_id). The `quantity_needed` / `quantity_fulfilled` fields on `gig_labels` track how many total submissions are still needed across all users.
+
+### SensorManager Architecture
+- `SensorManager` is `@Observable @MainActor`, owned by `GigCollectionViewModel`.
+- Created when user enters GigCollectionView, torn down on exit. Sensors only run during active recording.
+- Recordings saved per-gig: `GigRecordings/<assignmentCode>/<labelId>/<uuid>.json`
+- Each `GigRecordingSession` includes: `gigId`, `gigTitle`, `companyName`, `labelId`, `labelName`, `assignmentCode`, `startTime`, `frames: [SensorFrame]`.
+
+### Sample Rate
+- **Variable** — `SensorManager` accepts a `sampleRate: SampleRate` parameter.
+- Two modes:
+  - `.standard` → 10 Hz (0.1s interval) — walking, slow activities
+  - `.high` → 50 Hz (0.02s interval) — jumping, trotting, dynamic activities
+- `deviceMotionUpdateInterval` and `magnetometerUpdateInterval` are set from this value at recording start.
+- CMPedometer runs continuously regardless of sample rate (it has its own internal cadence).
+- Default is `.standard`. Future: gig could specify preferred rate in its metadata.
+
+### Sensor Data Collected (per frame, at configured sample rate)
+```
+timestamp, label_name,
+pitch, roll, yaw,
+latitude, longitude, altitude,
+pressure, heading, speed,
+accel_x, accel_y, accel_z,       // user acceleration (gravity removed)
+gforce_x, gforce_y, gforce_z,    // total acceleration (user + gravity)
+gravity_x, gravity_y, gravity_z, // gravity vector (for freefall/jump detection)
+gyro_x, gyro_y, gyro_z,
+mag_x, mag_y, mag_z,
+cadence                           // steps per second from CMPedometer (nil if unavailable)
+```
+CSV header matches the above field order.
+
+**Notes:**
+- `altitude` (relative, from CMAltimeter) + `gravity_x/y/z` enable jump height detection via hang time.
+- `cadence` comes from `CMPedometer.startUpdates` — updated ~1/sec by the OS, same value stamped on all frames within that second. Will be `nil` / empty for non-pedestrian activities.
+- CMPedometer requires motion permission (same `NSMotionUsageDescription` already needed for CoreMotion).
+
+## Sensor Data Collection (legacy note)
 
 - Collect sensor data using **CoreMotion** (accelerometer, gyroscope, etc.) and/or **HealthKit** as appropriate for each gig's `activity_type`.
 - The `duration_seconds` for each label is specified by the gig (`gig_labels.duration_seconds`).
 - Device types: `generic_ios` (iPhone sensors) and `apple_watch` (Watch sensors).
 - Save sensor samples to a **CSV file** in the app's documents directory before uploading.
-- CSV format (to be confirmed with backend): timestamp, sensor_type, x, y, z (accelerometer/gyro) or relevant fields per sensor.
 - Include device metadata in the confirm call: device model, OS version, sensor sample rate, etc.
 
 ---
@@ -329,6 +399,7 @@ struct GigDeviceRequirement {
 ## Important Rules
 
 - **No git commits** — only the human makes commits.
+- **Credentials alert** — if any code, config, or file you write or encounter contains credentials, passwords, API keys, or tokens, immediately alert the user and add a `// credentials` comment on the line immediately after.
 - **No third-party dependencies** without asking first (this includes Supabase Swift SDK — use URLSession for API calls unless instructed otherwise).
 - Keep API base URL and Supabase keys in a config/secrets file, never hardcoded in source.
 - Monetary values from the API are in **cents** — always display as dollars (divide by 100).
