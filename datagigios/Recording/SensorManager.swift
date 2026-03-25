@@ -19,7 +19,7 @@ final class SensorManager: NSObject {
     private var label: ApplicationLabel?
     private var gigSession: (gigId: String, gigTitle: String, companyName: String, assignmentCode: String)?
     private var recordingTimer: Timer?
-    private var elapsedSeconds = 0
+    private var recordingStartTime = Date()
 
     // Live location/altitude state (updated by delegates)
     private var lastLocation: CLLocation?
@@ -50,7 +50,7 @@ final class SensorManager: NSObject {
         self.label = label
         self.gigSession = (gigId, gigTitle, companyName, assignmentCode)
         frames = []
-        elapsedSeconds = 0
+        recordingStartTime = Date()
         isRecording = true
 
         // Location
@@ -94,6 +94,7 @@ final class SensorManager: NSObject {
     @discardableResult
     func stopRecording() -> GigRecordingSession? {
         guard isRecording, let label, let gig = gigSession else { return nil }
+        let endTime = Date()
         isRecording = false
         recordingTimer?.invalidate()
         recordingTimer = nil
@@ -112,7 +113,8 @@ final class SensorManager: NSObject {
             labelId: label.id,
             labelName: label.labelName,
             assignmentCode: gig.assignmentCode,
-            startTime: frames.first?.timestamp ?? Date(),
+            startTime: recordingStartTime,
+            endTime: endTime,
             intendedDurationSeconds: label.durationSeconds,
             frames: frames
         )

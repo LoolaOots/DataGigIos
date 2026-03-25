@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import CoreMotion
 
 @Observable
 @MainActor
@@ -12,6 +13,7 @@ final class PermissionsManager: NSObject {
     private(set) var authorizationStatus: CLAuthorizationStatus = .notDetermined
     private var onResult: ((PermissionResult) -> Void)?
     private let locationManager = CLLocationManager()
+    private var motionActivityManager: CMMotionActivityManager?
 
     override init() {
         super.init()
@@ -19,19 +21,41 @@ final class PermissionsManager: NSObject {
         authorizationStatus = locationManager.authorizationStatus
     }
 
-    /// Check current permissions. Requests if not determined. Calls `onResult` exactly once.
+    /// Check location + motion permissions. Requests if not determined. Calls `onResult` exactly once.
     func check(onResult: @escaping (PermissionResult) -> Void) {
         self.onResult = onResult
         let status = locationManager.authorizationStatus
         authorizationStatus = status
         switch status {
         case .authorizedWhenInUse, .authorizedAlways:
-            fire(.granted)
+            checkMotion()
         case .notDetermined:
             locationManager.requestWhenInUseAuthorization()
-            // Result arrives via locationManagerDidChangeAuthorization delegate callback below
+            // Continues in locationManagerDidChangeAuthorization
         default:
             fire(.denied)
+        }
+    }
+
+    private func checkMotion() {
+        guard CMMotionActivityManager.isActivityAvailable() else {
+            fire(.granted)
+            return
+        }
+        let manager = CMMotionActivityManager()
+        motionActivityManager = manager
+        // Querying triggers the Motion & Fitness permission dialog if not yet determined
+        manager.queryActivityStarting(from: Date(), to: Date(), to: .main) { [weak self] _, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.motionActivityManager = nil
+                if error == nil {
+                    self.fire(.granted)
+                } else {
+                    let motionStatus = CMMotionActivityManager.authorizationStatus()
+                    self.fire(motionStatus == .authorized ? .granted : .denied)
+                }
+            }
         }
     }
 
@@ -49,11 +73,11 @@ extension PermissionsManager: CLLocationManagerDelegate {
             self.authorizationStatus = manager.authorizationStatus
             switch manager.authorizationStatus {
             case .authorizedWhenInUse, .authorizedAlways:
-                self.fire(.granted)
+                self.checkMotion()
             case .denied, .restricted:
                 self.fire(.denied)
             default:
-                break   // .notDetermined — waiting for user response
+                break
             }
         }
     }

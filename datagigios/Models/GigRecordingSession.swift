@@ -9,6 +9,7 @@ struct GigRecordingSession: Identifiable, Codable, Equatable {
     let labelName: String
     let assignmentCode: String
     let startTime: Date
+    let endTime: Date
     let intendedDurationSeconds: Int
     var frames: [SensorFrame]
 }

@@ -176,8 +176,7 @@ struct GigRecordingsLibraryView: View {
                 Label("Submit (\(viewModel.selectedIDs.count))", systemImage: "arrow.up.circle")
                     .font(.subheadline).bold()
             }
-            .disabled(true)
-            .foregroundStyle(.blue.opacity(0.4))
+            .disabled(viewModel.selectedIDs.isEmpty)
 
             Spacer()
 

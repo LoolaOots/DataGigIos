@@ -81,9 +81,7 @@ struct RecordingSummaryView: View {
     }
 
     private var actualDurationSeconds: Int {
-        guard let first = session.frames.first?.timestamp,
-              let last = session.frames.last?.timestamp else { return 0 }
-        return max(0, Int(last.timeIntervalSince(first)))
+        max(0, Int(session.endTime.timeIntervalSince(session.startTime).rounded()))
     }
 
     private func formattedSeconds(_ seconds: Int) -> String {

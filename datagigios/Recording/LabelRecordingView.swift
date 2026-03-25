@@ -2,12 +2,14 @@ import SwiftUI
 
 struct LabelRecordingView: View {
     @Bindable var viewModel: GigCollectionViewModel
-    @State private var elapsed: TimeInterval = 0
+    @State private var timeRemaining: Int = 0
     @State private var timer: Timer?
 
     private var intended: Int { viewModel.selectedLabel?.durationSeconds ?? 1 }
-    private var remaining: TimeInterval { max(0, TimeInterval(intended) - elapsed) }
-    private var progress: Double { elapsed / TimeInterval(intended) }
+    private var progress: Double {
+        guard intended > 0 else { return 0 }
+        return 1.0 - Double(timeRemaining) / Double(intended)
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -42,9 +44,9 @@ struct LabelRecordingView: View {
                     .trim(from: 0, to: 1.0 - progress)
                     .stroke(Color.red, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                    .animation(.linear(duration: 0.5), value: progress)
+                    .animation(.linear(duration: 1.0), value: progress)
 
-                Text(formattedTime(remaining))
+                Text(formattedTime(timeRemaining))
                     .font(.system(.largeTitle, design: .rounded).weight(.bold))
                     .foregroundStyle(.white)
                     .monospacedDigit()
@@ -55,7 +57,7 @@ struct LabelRecordingView: View {
 
             Button("Stop Early") {
                 stopTimer()
-                viewModel.stopRecording()
+                viewModel.stopEarlyAndDiscard()
             }
             .buttonStyle(.bordered)
             .tint(.white)
@@ -68,11 +70,13 @@ struct LabelRecordingView: View {
     }
 
     private func startTimer() {
-        elapsed = 0
-        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [self] _ in
+        timeRemaining = intended
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] _ in
             Task { @MainActor in
-                elapsed += 0.5
-                if elapsed >= TimeInterval(intended) {
+                if timeRemaining > 0 {
+                    timeRemaining -= 1
+                }
+                if timeRemaining == 0 {
                     stopTimer()
                     viewModel.stopRecording()
                 }
@@ -85,10 +89,7 @@ struct LabelRecordingView: View {
         timer = nil
     }
 
-    private func formattedTime(_ interval: TimeInterval) -> String {
-        let totalSeconds = Int(interval)
-        let m = totalSeconds / 60
-        let s = totalSeconds % 60
-        return String(format: "%d:%02d", m, s)
+    private func formattedTime(_ seconds: Int) -> String {
+        Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond(padMinuteToLength: 1)))
     }
 }

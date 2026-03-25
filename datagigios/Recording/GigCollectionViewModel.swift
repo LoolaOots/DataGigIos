@@ -39,13 +39,19 @@ final class GigCollectionViewModel {
         recordingPhase = .recording
     }
 
-    /// Called by LabelRecordingView on Stop Early, auto-end, or background
+    /// Called by LabelRecordingView when timer auto-completes (full duration). Shows summary.
     func stopRecording() {
         if let session = sensorManager.stopRecording() {
             recordingPhase = .summary(session)
         } else {
             recordingPhase = nil
         }
+    }
+
+    /// Called by LabelRecordingView "Stop Early" button or background during recording. Discards without showing summary.
+    func stopEarlyAndDiscard() {
+        sensorManager.stopRecording()
+        recordingPhase = nil
     }
 
     /// Called by RecordingSummaryView after it has already saved the session.
