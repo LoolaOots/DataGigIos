@@ -12,8 +12,10 @@ struct GigListView: View {
         Group {
             if viewModel.isLoading && viewModel.gigs.isEmpty {
                 loadingView
-            } else if let error = viewModel.error, viewModel.gigs.isEmpty {
-                errorView(message: error)
+            } else if viewModel.error != nil, viewModel.gigs.isEmpty {
+                DataUnavailableView {
+                    Task { await viewModel.loadGigs() }
+                }
             } else {
                 gigList
             }
@@ -51,30 +53,6 @@ struct GigListView: View {
         .allowsHitTesting(false)
     }
 
-    // MARK: - Error state
-
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.orange)
-
-            Text("Failed to load gigs")
-                .font(.headline)
-
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
-            Button("Retry") {
-                Task { await viewModel.loadGigs() }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 }
 
 // MARK: - GigRowView

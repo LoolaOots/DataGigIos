@@ -30,12 +30,10 @@ struct GigDetailView: View {
             if viewModel.isLoading && viewModel.gig == nil {
                 ProgressView("Loading…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let errorMessage = viewModel.error, viewModel.gig == nil {
-                ContentUnavailableView(
-                    "Failed to Load",
-                    systemImage: "exclamationmark.triangle.fill",
-                    description: Text(errorMessage)
-                )
+            } else if viewModel.error != nil, viewModel.gig == nil {
+                DataUnavailableView {
+                    Task { await viewModel.loadGig() }
+                }
             } else if let gig = viewModel.gig {
                 gigDetailContent(gig: gig)
             }

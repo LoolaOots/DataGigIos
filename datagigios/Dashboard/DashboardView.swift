@@ -28,6 +28,12 @@ struct DashboardView: View {
                 if viewModel.isLoading && viewModel.profile == nil {
                     ProgressView("Loading…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if viewModel.error != nil, viewModel.profile == nil {
+                    DataUnavailableView {
+                        if let token = authRouter.session?.accessToken {
+                            Task { await viewModel.load(accessToken: token) }
+                        }
+                    }
                 } else {
                     dashboardContent
                 }
@@ -82,10 +88,6 @@ struct DashboardView: View {
     private var dashboardContent: some View {
         ScrollView {
             VStack(spacing: 20) {
-                if let errorMessage = viewModel.error {
-                    ErrorBannerView(message: errorMessage)
-                }
-
                 StatsRowView(
                     balance: viewModel.profile.map { Double($0.creditsBalanceCents) / 100 },
                     activeCount: viewModel.activeCount,
@@ -195,25 +197,6 @@ private struct DashboardCardView: View {
             .background(.regularMaterial, in: .rect(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-    }
-}
-
-// MARK: - ErrorBannerView
-
-private struct ErrorBannerView: View {
-    let message: String
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.orange.opacity(0.1), in: .rect(cornerRadius: 12))
     }
 }
 

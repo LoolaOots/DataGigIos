@@ -4,18 +4,9 @@
 <dict>
 	<key>BACKEND_BASE_URL</key>
 	<string>$(BACKEND_BASE_URL)</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>192.168.86.27</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
-	</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>DataGigs records your GPS location and speed to capture sensor data for gig submissions.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>DataGigs records motion sensor data (accelerometer, gyroscope, altimeter) for gig submissions.</string>
 </dict>
 </plist>
