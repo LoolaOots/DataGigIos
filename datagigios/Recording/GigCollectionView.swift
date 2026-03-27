@@ -53,12 +53,17 @@ struct GigCollectionView: View {
                 .fill(Color.green)
                 .frame(width: 4)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(label.labelName)
-                    .font(.headline)
-                Text("\(formattedDuration(label.durationSeconds)) · \(formattedRate(label.rateCents))")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.title3).bold()
+                HStack(spacing: 14) {
+                    Label(formattedDuration(label.durationSeconds), systemImage: "timer")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Label(formattedRate(label.rateCents), systemImage: "dollarsign.circle")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
                 if let description = label.description, !description.isEmpty {
                     Text(description)
                         .font(.caption)
@@ -66,7 +71,7 @@ struct GigCollectionView: View {
                 }
             }
             .padding(.leading, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 14)
 
             Spacer()
 
@@ -80,45 +85,58 @@ struct GigCollectionView: View {
 
     @ViewBuilder
     private func beginSheet(label: ApplicationLabel) -> some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             Text("Begin \(label.labelName)")
                 .font(.title2).bold()
+                .multilineTextAlignment(.center)
                 .padding(.top, 24)
+                .padding(.horizontal)
 
-            VStack(spacing: 8) {
-                HStack {
-                    Text("Duration")
+            VStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Duration", systemImage: "stopwatch")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Spacer()
                     Text(formattedDuration(label.durationSeconds))
-                        .fontWeight(.medium)
+                        .font(.title3).bold()
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
                 Divider()
-                HStack {
-                    Text("Payout")
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Expected Payout", systemImage: "dollarsign.circle")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Spacer()
                     Text(formattedRate(label.rateCents))
-                        .fontWeight(.medium)
+                        .font(.title3).bold()
+                        .foregroundStyle(.green)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding()
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             .padding(.horizontal)
 
-            Button("Start") {
-                showBeginSheet = false
-                viewModel.beginLabel(label)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            VStack(spacing: 12) {
+                Button("Start") {
+                    showBeginSheet = false
+                    viewModel.beginLabel(label)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal)
 
-            Button("Cancel") {
-                showBeginSheet = false
-                viewModel.selectedLabel = nil
+                Button("Cancel") {
+                    showBeginSheet = false
+                    viewModel.selectedLabel = nil
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
 
             Spacer()
         }

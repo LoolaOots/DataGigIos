@@ -1,22 +1,27 @@
 import SwiftUI
 
 struct GigRecordingsLibraryView: View {
+    let detail: ApplicationDetail
     @State private var viewModel: GigRecordingsLibraryViewModel
     @State private var showUploadAlert = false
     @State private var activePopoverID: UUID?
+    @State private var permissionsManager = PermissionsManager()
+    @State private var showCollection = false
+    @State private var showPermissionsDenied = false
 
-    init(assignmentCode: String, gigTitle: String, companyName: String) {
+    init(detail: ApplicationDetail) {
+        self.detail = detail
         _viewModel = State(wrappedValue: GigRecordingsLibraryViewModel(
-            assignmentCode: assignmentCode,
-            gigTitle: gigTitle,
-            companyName: companyName
+            assignmentCode: detail.assignmentCode ?? "",
+            gigTitle: detail.gigDetail.title,
+            companyName: detail.gigDetail.companyName
         ))
     }
 
     var body: some View {
         VStack(spacing: 0) {
             if viewModel.sessions.isEmpty {
-                ContentUnavailableView("No Recordings", systemImage: "waveform.slash", description: Text("Record a label to see it here."))
+                emptyState
             } else {
                 sessionList
             }
@@ -28,10 +33,48 @@ struct GigRecordingsLibraryView: View {
             if viewModel.isSelectMode { bottomBar }
         }
         .onAppear { viewModel.load() }
+        .navigationDestination(isPresented: $showCollection) {
+            GigCollectionView(viewModel: GigCollectionViewModel(detail: detail))
+        }
+        .navigationDestination(isPresented: $showPermissionsDenied) {
+            PermissionsDeniedView(
+                onGranted: {
+                    showPermissionsDenied = false
+                    showCollection = true
+                },
+                onBack: { showPermissionsDenied = false }
+            )
+        }
         .alert("Upload Coming Soon", isPresented: $showUploadAlert) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Uploading recordings will be available in a future update.")
+        }
+    }
+
+    // MARK: - Empty State
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            ContentUnavailableView(
+                "No Recordings",
+                systemImage: "waveform.slash",
+                description: Text("Record a label to see it here.")
+            )
+            Button {
+                permissionsManager.check { result in
+                    switch result {
+                    case .granted: showCollection = true
+                    case .denied:  showPermissionsDenied = true
+                    }
+                }
+            } label: {
+                Label("Start Collecting Data", systemImage: "record.circle")
+                    .font(.headline)
+                    .padding(.vertical, 4)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
         }
     }
 
@@ -65,16 +108,12 @@ struct GigRecordingsLibraryView: View {
                 selectCircle(id: session.id)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
                     Text(session.startTime, style: .date) + Text(", ") + Text(session.startTime, style: .time)
-                    Label(session.labelName.uppercased(), systemImage: "tag.fill")
-                        .font(.caption2).bold()
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(Color(red: 0.04, green: 0.3, blue: 0.8), in: Capsule())
+                    labelTag(session.labelName)
                 }
-                .font(.footnote).bold()
+                .font(.subheadline).bold()
                 Text("\(session.frames.count) frames captured")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -101,9 +140,22 @@ struct GigRecordingsLibraryView: View {
                     .foregroundStyle(.tertiary)
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 12)
         .background(viewModel.selectedIDs.contains(session.id) ? Color.green.opacity(0.08) : Color.clear)
         .contentShape(Rectangle())
+    }
+
+    private func labelTag(_ name: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "tag.fill")
+                .font(.system(size: 8))
+            Text(name.uppercased())
+                .font(.system(size: 10, weight: .bold))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(.blue, in: Capsule())
     }
 
     private func selectCircle(id: UUID) -> some View {
@@ -159,7 +211,7 @@ struct GigRecordingsLibraryView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Done") { viewModel.clearSelection() }
             }
-        } else {
+        } else if !viewModel.sessions.isEmpty {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Select") { viewModel.isSelectMode = true }
             }
@@ -170,20 +222,20 @@ struct GigRecordingsLibraryView: View {
 
     private var bottomBar: some View {
         HStack {
-            Button {
-                showUploadAlert = true
+            Button(role: .destructive) {
+                viewModel.deleteSelected()
             } label: {
-                Label("Submit (\(viewModel.selectedIDs.count))", systemImage: "arrow.up.circle")
+                Label("Delete (\(viewModel.selectedIDs.count))", systemImage: "trash")
                     .font(.subheadline).bold()
             }
             .disabled(viewModel.selectedIDs.isEmpty)
 
             Spacer()
 
-            Button(role: .destructive) {
-                viewModel.deleteSelected()
+            Button {
+                showUploadAlert = true
             } label: {
-                Label("Delete (\(viewModel.selectedIDs.count))", systemImage: "trash")
+                Label("Submit (\(viewModel.selectedIDs.count))", systemImage: "arrow.up.circle")
                     .font(.subheadline).bold()
             }
             .disabled(viewModel.selectedIDs.isEmpty)

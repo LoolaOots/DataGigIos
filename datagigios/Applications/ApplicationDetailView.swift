@@ -101,19 +101,21 @@ struct ApplicationDetailView: View {
                             }
                         } label: {
                             Label("Start Collecting Data", systemImage: "record.circle")
+                                .font(.headline)
                                 .frame(maxWidth: .infinity)
+                                .padding(.vertical, 4)
                         }
                         .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
 
-                        NavigationLink(destination: GigRecordingsLibraryView(
-                            assignmentCode: detail.assignmentCode ?? "",
-                            gigTitle: detail.gigDetail.title,
-                            companyName: detail.gigDetail.companyName
-                        )) {
+                        NavigationLink(destination: GigRecordingsLibraryView(detail: detail)) {
                             Label("View Recordings", systemImage: "list.bullet.rectangle")
+                                .font(.headline)
                                 .frame(maxWidth: .infinity)
+                                .padding(.vertical, 4)
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.large)
                     }
                     .padding()
                 }
@@ -169,7 +171,7 @@ private struct StatusBannerView: View {
 
     private var statusDescription: String {
         switch status {
-        case "accepted": return "Your application was accepted. Use your assignment code to submit."
+        case "accepted": return "Your application was accepted. Start collecting data to begin."
         case "pending": return "Your application is being reviewed."
         case "denied": return "Unfortunately your application was not selected for this gig."
         default: return ""
