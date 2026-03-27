@@ -137,6 +137,7 @@ struct ApplicationRowView: View {
             }
         }
         .padding(.vertical, 4)
+        .contentShape(.rect)
     }
 
     private func deviceTypeIcon(_ type: String) -> String {

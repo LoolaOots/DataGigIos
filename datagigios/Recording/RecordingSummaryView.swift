@@ -7,32 +7,10 @@ struct RecordingSummaryView: View {
     @State private var storageFull = false
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.green)
-
-            Text("Recording Complete")
-                .font(.title2).bold()
-                .foregroundStyle(.white)
-
-            // Stats
-            VStack(spacing: 12) {
-                statRow(label: "Label", value: session.labelName)
-                statRow(label: "Duration", value: formattedSeconds(actualDurationSeconds))
-                statRow(label: "Frames", value: "\(session.frames.count)")
-                statRow(label: "Intended", value: "of \(formattedSeconds(session.intendedDurationSeconds)) total")
-            }
-            .padding()
-            .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-            .padding(.horizontal)
-
-            Spacer()
-
-            // Action buttons
-            VStack(spacing: 12) {
+        VStack(spacing: 0) {
+            // Done button top right
+            HStack {
+                Spacer()
                 Button("Done") {
                     do {
                         try GigRecordingSessionStore.save(session)
@@ -41,25 +19,67 @@ struct RecordingSummaryView: View {
                         storageFull = true
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-
-                Button("Submit") {
-                    showUploadAlert = true
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-
-                Button("Delete") {
-                    viewModel.discardAndDismiss()
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.red)
+                .bold()
+                .foregroundStyle(.white)
             }
-            .padding(.bottom, 40)
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+
+            // Content pushed toward the top
+            VStack(spacing: 0) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.green)
+
+                Text("Recording Complete")
+                    .font(.title2).bold()
+                    .foregroundStyle(.white)
+                    .padding(.top, 12)
+
+                // Stats
+                VStack(spacing: 12) {
+                    statRow(label: "Label", value: session.labelName)
+                    statRow(label: "Duration", value: formattedSeconds(actualDurationSeconds))
+                    statRow(label: "Frames", value: "\(session.frames.count)")
+                }
+                .padding()
+                .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal)
+                .padding(.top, 24)
+            }
+            .padding(.top, 40)
+
+            Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
+        .safeAreaInset(edge: .bottom) {
+            HStack {
+                Button(role: .destructive) {
+                    viewModel.discardAndDismiss()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                        .font(.subheadline).bold()
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+                .controlSize(.large)
+
+                Spacer()
+
+                Button {
+                    showUploadAlert = true
+                } label: {
+                    Label("Submit", systemImage: "arrow.up.circle")
+                        .font(.subheadline).bold()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .background(Color.black)
+        }
         .alert("Upload Coming Soon", isPresented: $showUploadAlert) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -81,7 +101,8 @@ struct RecordingSummaryView: View {
     }
 
     private var actualDurationSeconds: Int {
-        max(0, Int(session.endTime.timeIntervalSince(session.startTime).rounded()))
+        let elapsed = Int(session.endTime.timeIntervalSince(session.startTime).rounded())
+        return min(max(0, elapsed), session.intendedDurationSeconds)
     }
 
     private func formattedSeconds(_ seconds: Int) -> String {
