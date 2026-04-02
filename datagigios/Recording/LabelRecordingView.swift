@@ -55,12 +55,11 @@ struct LabelRecordingView: View {
 
             Spacer()
 
-            Button("Stop Early") {
+            Button("Cancel", role: .destructive) {
                 stopTimer()
                 viewModel.stopEarlyAndDiscard()
             }
             .buttonStyle(.bordered)
-            .tint(.white)
             .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

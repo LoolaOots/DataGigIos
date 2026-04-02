@@ -21,6 +21,8 @@ struct DashboardView: View {
     @Environment(AuthRouter.self) private var authRouter
     @State private var viewModel = DashboardViewModel()
     @State private var path = NavigationPath()
+    @State private var showSignOutConfirmation = false
+    @State private var signOutConfirmed = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -29,22 +31,28 @@ struct DashboardView: View {
                     ProgressView("Loading…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if viewModel.error != nil, viewModel.profile == nil {
-                    DataUnavailableView {
-                        if let token = authRouter.session?.accessToken {
-                            Task { await viewModel.load(accessToken: token) }
+                    ContentUnavailableView {
+                        Label("Unable to Load Dashboard", systemImage: "exclamationmark.triangle.fill")
+                    } description: {
+                        Text("Please try again later.")
+                    } actions: {
+                        Button("Retry") {
+                            if let token = authRouter.session?.accessToken {
+                                Task { await viewModel.load(accessToken: token) }
+                            }
                         }
+                        .buttonStyle(.borderedProminent)
                     }
                 } else {
-                    dashboardContent
+                    DashboardContent(viewModel: viewModel, path: $path)
                 }
             }
             .navigationTitle("DataGigs")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Sign Out") {
-                        authRouter.clearSession()
+                    Button("Sign Out", role: .destructive) {
+                        showSignOutConfirmation = true
                     }
-                    .foregroundStyle(.red)
                 }
             }
             .navigationDestination(for: AppDestination.self) { destination in
@@ -80,12 +88,27 @@ struct DashboardView: View {
                     await viewModel.load(accessToken: token)
                 }
             }
+            .alert("Sign Out?", isPresented: $showSignOutConfirmation) {
+                Button("Sign Out", role: .destructive) {
+                    signOutConfirmed.toggle()
+                    authRouter.clearSession()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("You will need to sign in again to access your account.")
+            }
+            .sensoryFeedback(.impact, trigger: signOutConfirmed)
         }
     }
+}
 
-    // MARK: - Dashboard content
+// MARK: - DashboardContent
 
-    private var dashboardContent: some View {
+private struct DashboardContent: View {
+    @Bindable var viewModel: DashboardViewModel
+    @Binding var path: NavigationPath
+
+    var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 StatsRowView(
@@ -192,6 +215,7 @@ private struct DashboardCardView: View {
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
             .padding()
             .background(.regularMaterial, in: .rect(cornerRadius: 16))

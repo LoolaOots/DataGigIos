@@ -32,12 +32,11 @@ struct CountdownOverlayView: View {
 
             Spacer()
 
-            Button("Cancel") {
+            Button("Cancel", role: .destructive) {
                 timer.upstream.connect().cancel()
                 viewModel.cancelCountdown()
             }
             .buttonStyle(.bordered)
-            .tint(.white)
             .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

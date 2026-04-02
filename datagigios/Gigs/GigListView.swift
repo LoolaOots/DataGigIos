@@ -11,13 +11,20 @@ struct GigListView: View {
     var body: some View {
         Group {
             if viewModel.isLoading && viewModel.gigs.isEmpty {
-                loadingView
+                GigLoadingView()
             } else if viewModel.error != nil, viewModel.gigs.isEmpty {
-                DataUnavailableView {
-                    Task { await viewModel.loadGigs() }
+                ContentUnavailableView {
+                    Label("Unable to Load Gigs", systemImage: "exclamationmark.triangle.fill")
+                } description: {
+                    Text("Please try again later.")
+                } actions: {
+                    Button("Retry") {
+                        Task { await viewModel.loadGigs() }
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
             } else {
-                gigList
+                GigList(viewModel: viewModel)
             }
         }
         .navigationTitle("Gigs")
@@ -25,24 +32,38 @@ struct GigListView: View {
             await viewModel.loadGigs()
         }
     }
+}
 
-    // MARK: - Gig list
+// MARK: - GigList
 
-    private var gigList: some View {
+private struct GigList: View {
+    @Bindable var viewModel: GigListViewModel
+
+    var body: some View {
         List(viewModel.gigs) { gig in
             NavigationLink(value: NavDestination.gigDetail(gig.id)) {
                 GigRowView(gig: gig)
             }
+            .accessibilityLabel("View \(gig.title) by \(gig.companyName), \(payoutRange(for: gig))")
+            .accessibilityHint("Opens gig details")
         }
-        .listStyle(.plain)
+        .listStyle(.insetGrouped)
         .refreshable {
             await viewModel.loadGigs()
         }
     }
+}
 
-    // MARK: - Loading skeleton
+private func payoutRange(for gig: Gig) -> String {
+    let min = (Double(gig.minRateCents) / 100).formatted(.currency(code: "USD"))
+    let max = (Double(gig.maxRateCents) / 100).formatted(.currency(code: "USD"))
+    return "\(min)–\(max)"
+}
 
-    private var loadingView: some View {
+// MARK: - GigLoadingView
+
+private struct GigLoadingView: View {
+    var body: some View {
         List {
             ForEach(0..<6, id: \.self) { _ in
                 GigRowSkeletonView()
@@ -52,7 +73,6 @@ struct GigListView: View {
         .listStyle(.plain)
         .allowsHitTesting(false)
     }
-
 }
 
 // MARK: - GigRowView
@@ -84,7 +104,7 @@ private struct GigRowView: View {
             }
 
             if !gig.deviceTypes.isEmpty {
-                deviceTypePills
+                DeviceTypePills(deviceTypes: gig.deviceTypes)
             }
         }
         .padding(.vertical, 4)
@@ -95,10 +115,16 @@ private struct GigRowView: View {
         let max = (Double(gig.maxRateCents) / 100).formatted(.currency(code: "USD"))
         return "\(min)–\(max)"
     }
+}
 
-    private var deviceTypePills: some View {
+// MARK: - DeviceTypePills
+
+private struct DeviceTypePills: View {
+    let deviceTypes: [String]
+
+    var body: some View {
         HStack(spacing: 6) {
-            ForEach(gig.deviceTypes, id: \.self) { deviceType in
+            ForEach(deviceTypes, id: \.self) { deviceType in
                 Label(deviceTypeLabel(deviceType), systemImage: deviceTypeIcon(deviceType))
                     .font(.caption2)
                     .padding(.horizontal, 8)

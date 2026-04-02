@@ -31,11 +31,23 @@ struct GigDetailView: View {
                 ProgressView("Loading…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if viewModel.error != nil, viewModel.gig == nil {
-                DataUnavailableView {
-                    Task { await viewModel.loadGig() }
+                ContentUnavailableView {
+                    Label("Unable to Load Gig", systemImage: "exclamationmark.triangle.fill")
+                } description: {
+                    Text("Please try again later.")
+                } actions: {
+                    Button("Retry") {
+                        Task { await viewModel.loadGig() }
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
             } else if let gig = viewModel.gig {
-                gigDetailContent(gig: gig)
+                GigDetailContent(
+                    gig: gig,
+                    viewModel: viewModel,
+                    showAuth: $showAuth,
+                    navigateToApply: $navigateToApply
+                )
             }
         }
         .navigationTitle(viewModel.gig?.title ?? "Gig Detail")
@@ -52,10 +64,17 @@ struct GigDetailView: View {
             }
         }
     }
+}
 
-    // MARK: - Detail content
+// MARK: - GigDetailContent
 
-    private func gigDetailContent(gig: GigDetail) -> some View {
+private struct GigDetailContent: View {
+    let gig: GigDetail
+    @Bindable var viewModel: GigDetailViewModel
+    @Binding var showAuth: Bool
+    @Binding var navigateToApply: Bool
+
+    var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // Header info
@@ -82,16 +101,27 @@ struct GigDetailView: View {
             .padding()
         }
         .safeAreaInset(edge: .bottom) {
-            applyButton(gig: gig)
-                .padding()
-                .background(.regularMaterial)
+            ApplyButton(
+                gig: gig,
+                viewModel: viewModel,
+                showAuth: $showAuth,
+                navigateToApply: $navigateToApply
+            )
+            .padding()
+            .background(.regularMaterial)
         }
     }
+}
 
-    // MARK: - Apply button
+// MARK: - ApplyButton
 
-    @ViewBuilder
-    private func applyButton(gig: GigDetail) -> some View {
+private struct ApplyButton: View {
+    let gig: GigDetail
+    @Bindable var viewModel: GigDetailViewModel
+    @Binding var showAuth: Bool
+    @Binding var navigateToApply: Bool
+
+    var body: some View {
         switch viewModel.applyState {
         case .signInRequired:
             Button("Sign in to Apply") {
@@ -112,6 +142,7 @@ struct GigDetailView: View {
                 .buttonStyle(.borderedProminent)
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .disabled(true)
+                .accessibilityLabel("Already applied")
         }
     }
 }

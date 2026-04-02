@@ -6,13 +6,13 @@ struct GigCollectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            labelList
+            LabelListView(viewModel: viewModel, showBeginSheet: $showBeginSheet)
         }
         .navigationTitle("\(viewModel.detail.gigDetail.title) - \(viewModel.detail.gigDetail.companyName)")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showBeginSheet) {
             if let label = viewModel.selectedLabel {
-                beginSheet(label: label)
+                BeginSheetView(viewModel: viewModel, label: label, showBeginSheet: $showBeginSheet)
             }
         }
         .fullScreenCover(isPresented: Binding(
@@ -22,18 +22,27 @@ struct GigCollectionView: View {
             RecordingCoordinatorView(viewModel: viewModel)
         }
     }
+}
 
-    private var labelList: some View {
+// MARK: - Label List
+
+private struct LabelListView: View {
+    @Bindable var viewModel: GigCollectionViewModel
+    @Binding var showBeginSheet: Bool
+
+    var body: some View {
         List {
             ForEach(viewModel.detail.gigDetail.labels) { label in
                 Button {
                     viewModel.selectedLabel = label
                     showBeginSheet = true
                 } label: {
-                    labelRow(label: label)
+                    LabelRowView(label: label)
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
+                .accessibilityLabel("Begin \(label.labelName)")
+                .accessibilityHint("Opens setup sheet to start recording")
             }
 
             Text("Tap any label to begin")
@@ -45,8 +54,14 @@ struct GigCollectionView: View {
         }
         .listStyle(.plain)
     }
+}
 
-    private func labelRow(label: ApplicationLabel) -> some View {
+// MARK: - Label Row
+
+private struct LabelRowView: View {
+    let label: ApplicationLabel
+
+    var body: some View {
         HStack(spacing: 0) {
             // Green accent bar
             Rectangle()
@@ -79,12 +94,30 @@ struct GigCollectionView: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .padding(.trailing, 16)
+                .accessibilityHidden(true)
         }
         .padding(.leading, 0)
     }
 
-    @ViewBuilder
-    private func beginSheet(label: ApplicationLabel) -> some View {
+    private func formattedDuration(_ seconds: Int) -> String {
+        let m = seconds / 60
+        let s = seconds % 60
+        return s == 0 ? "\(m)m" : "\(m)m \(s)s"
+    }
+
+    private func formattedRate(_ cents: Int) -> String {
+        return (Double(cents) / 100.0).formatted(.currency(code: "USD"))
+    }
+}
+
+// MARK: - Begin Sheet
+
+private struct BeginSheetView: View {
+    @Bindable var viewModel: GigCollectionViewModel
+    let label: ApplicationLabel
+    @Binding var showBeginSheet: Bool
+
+    var body: some View {
         VStack(spacing: 24) {
             Text("Begin \(label.labelName)")
                 .font(.title2).bold()
@@ -118,32 +151,34 @@ struct GigCollectionView: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             .padding(.horizontal)
 
+            Spacer()
+
             VStack(spacing: 12) {
-                Button("Start") {
+                Button {
                     showBeginSheet = false
                     viewModel.beginLabel(label)
+                } label: {
+                    Text("Start")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal)
 
-                Button("Cancel") {
+                Button(role: .destructive) {
                     showBeginSheet = false
                     viewModel.selectedLabel = nil
+                } label: {
+                    Text("Cancel")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal)
             }
-
-            Spacer()
+            .padding(.horizontal)
+            .padding(.bottom, 24)
         }
         .presentationDetents([.medium])
     }
-
-    // MARK: - Helpers
 
     private func formattedDuration(_ seconds: Int) -> String {
         let m = seconds / 60
@@ -161,6 +196,33 @@ struct GigCollectionView: View {
 private struct RecordingCoordinatorView: View {
     @Bindable var viewModel: GigCollectionViewModel
     @Environment(\.scenePhase) private var scenePhase
+    @State private var recordingStarted = false
+    @State private var recordingStopped = false
+
+    var body: some View {
+        RecordingPhaseView(viewModel: viewModel)
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .background else { return }
+                switch viewModel.recordingPhase {
+                case .countdown:
+                    viewModel.cancelCountdown()
+                case .recording:
+                    viewModel.stopRecording()
+                default:
+                    break
+                }
+            }
+            .onChange(of: viewModel.recordingPhase) { old, new in
+                if new == .recording { recordingStarted.toggle() }
+                if old == .recording && new != .recording { recordingStopped.toggle() }
+            }
+            .sensoryFeedback(.start, trigger: recordingStarted)
+            .sensoryFeedback(.stop, trigger: recordingStopped)
+    }
+}
+
+private struct RecordingPhaseView: View {
+    @Bindable var viewModel: GigCollectionViewModel
 
     var body: some View {
         ZStack {
@@ -174,17 +236,6 @@ private struct RecordingCoordinatorView: View {
                 RecordingSummaryView(session: session, viewModel: viewModel)
             case nil:
                 EmptyView()
-            }
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            guard newPhase == .background else { return }
-            switch viewModel.recordingPhase {
-            case .countdown:
-                viewModel.cancelCountdown()
-            case .recording:
-                viewModel.stopRecording()
-            default:
-                break
             }
         }
     }

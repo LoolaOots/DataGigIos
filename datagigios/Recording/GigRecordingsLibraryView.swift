@@ -4,10 +4,12 @@ struct GigRecordingsLibraryView: View {
     let detail: ApplicationDetail
     @State private var viewModel: GigRecordingsLibraryViewModel
     @State private var showUploadAlert = false
-    @State private var activePopoverID: UUID?
     @State private var permissionsManager = PermissionsManager()
     @State private var showCollection = false
     @State private var showPermissionsDenied = false
+    @State private var showDeleteConfirmation = false
+    @State private var recordingToDelete: GigRecordingSession? = nil
+    @State private var showDeleteSelectedConfirmation = false
 
     init(detail: ApplicationDetail) {
         self.detail = detail
@@ -21,16 +23,32 @@ struct GigRecordingsLibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             if viewModel.sessions.isEmpty {
-                emptyState
+                EmptyStateView(
+                    permissionsManager: permissionsManager,
+                    showCollection: $showCollection,
+                    showPermissionsDenied: $showPermissionsDenied
+                )
             } else {
-                sessionList
+                SessionListView(
+                    viewModel: viewModel,
+                    showUploadAlert: $showUploadAlert,
+                    showDeleteConfirmation: $showDeleteConfirmation,
+                    recordingToDelete: $recordingToDelete
+                )
             }
         }
         .navigationTitle("\(viewModel.gigTitle) - \(viewModel.companyName)")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(viewModel.isSelectMode)
         .toolbar { toolbarContent }
         .safeAreaInset(edge: .bottom) {
-            if viewModel.isSelectMode { bottomBar }
+            if viewModel.isSelectMode {
+                BottomBarView(
+                    viewModel: viewModel,
+                    showUploadAlert: $showUploadAlert,
+                    showDeleteSelectedConfirmation: $showDeleteSelectedConfirmation
+                )
+            }
         }
         .onAppear { viewModel.load() }
         .navigationDestination(isPresented: $showCollection) {
@@ -50,11 +68,59 @@ struct GigRecordingsLibraryView: View {
         } message: {
             Text("Uploading recordings will be available in a future update.")
         }
+        .alert("Delete Recording?", isPresented: $showDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                if let session = recordingToDelete {
+                    viewModel.delete(session: session)
+                    recordingToDelete = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                recordingToDelete = nil
+            }
+        } message: {
+            Text("This action cannot be undone.")
+        }
+        .alert("Delete Recording?", isPresented: $showDeleteSelectedConfirmation) {
+            Button("Delete", role: .destructive) {
+                viewModel.deleteSelected()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This action cannot be undone.")
+        }
     }
 
-    // MARK: - Empty State
+    // MARK: - Toolbar
 
-    private var emptyState: some View {
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if viewModel.isSelectMode {
+            ToolbarItem(placement: .principal) {
+                Text("\(viewModel.selectedIDs.count) Selected").bold()
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") {
+                    viewModel.clearSelection()
+                    viewModel.isSelectMode = false
+                }
+            }
+        } else if !viewModel.sessions.isEmpty {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Select") { viewModel.isSelectMode = true }
+            }
+        }
+    }
+}
+
+// MARK: - Empty State
+
+private struct EmptyStateView: View {
+    let permissionsManager: PermissionsManager
+    @Binding var showCollection: Bool
+    @Binding var showPermissionsDenied: Bool
+
+    var body: some View {
         VStack(spacing: 16) {
             ContentUnavailableView(
                 "No Recordings",
@@ -77,41 +143,75 @@ struct GigRecordingsLibraryView: View {
             .controlSize(.large)
         }
     }
+}
 
-    // MARK: - Session List
+// MARK: - Session List
 
-    private var sessionList: some View {
+private struct SessionListView: View {
+    @Bindable var viewModel: GigRecordingsLibraryViewModel
+    @Binding var showUploadAlert: Bool
+    @Binding var showDeleteConfirmation: Bool
+    @Binding var recordingToDelete: GigRecordingSession?
+
+    var body: some View {
         List {
             Section(header: Text("Available Recordings").textCase(.none).font(.subheadline).foregroundStyle(.secondary)) {
                 ForEach(viewModel.sessions) { session in
-                    sessionRow(session: session)
+                    SessionRowView(viewModel: viewModel, session: session)
                         .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                recordingToDelete = session
+                                showDeleteConfirmation = true
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                            Button {
+                                showUploadAlert = true
+                            } label: {
+                                Label("Submit", systemImage: "arrow.up.circle")
+                            }
+                            .tint(.blue)
+                        }
                 }
             }
         }
         .listStyle(.plain)
     }
+}
 
-    @ViewBuilder
-    private func sessionRow(session: GigRecordingSession) -> some View {
+// MARK: - Session Row
+
+private struct SessionRowView: View {
+    @Bindable var viewModel: GigRecordingsLibraryViewModel
+    let session: GigRecordingSession
+
+    var body: some View {
         if viewModel.isSelectMode {
-            Button { viewModel.toggleSelect(session.id) } label: { rowBody(session: session) }
+            let isSelected = viewModel.selectedIDs.contains(session.id)
+            Button { viewModel.toggleSelect(session.id) } label: { rowBody }
                 .buttonStyle(.plain)
+                .accessibilityLabel("\(session.labelName) recording, \(session.startTime.formatted(date: .abbreviated, time: .shortened))")
+                .accessibilityValue(isSelected ? "Selected" : "Not selected")
+                .accessibilityHint("Double-tap to \(isSelected ? "deselect" : "select")")
         } else {
-            rowBody(session: session)
+            rowBody
         }
     }
 
-    private func rowBody(session: GigRecordingSession) -> some View {
+    private var rowBody: some View {
         HStack(spacing: 10) {
             if viewModel.isSelectMode {
-                selectCircle(id: session.id)
+                SelectCircleView(id: session.id, selectedIDs: viewModel.selectedIDs)
+                    .accessibilityHidden(true)
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Text(session.startTime, style: .date) + Text(", ") + Text(session.startTime, style: .time)
-                    labelTag(session.labelName)
+                    LabelTagView(name: session.labelName)
                 }
                 .font(.subheadline).bold()
                 Text("\(session.frames.count) frames captured")
@@ -121,123 +221,80 @@ struct GigRecordingsLibraryView: View {
             Spacer()
 
             if !viewModel.isSelectMode {
-                Button {
-                    activePopoverID = activePopoverID == session.id ? nil : session.id
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.title3)
-                        .foregroundStyle(.blue)
-                }
-                .popover(isPresented: Binding(
-                    get: { activePopoverID == session.id },
-                    set: { if !$0 { activePopoverID = nil } }
-                )) {
-                    popoverMenu(session: session)
-                }
-
                 Image(systemName: "chevron.right")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
         }
         .padding(.vertical, 12)
         .background(viewModel.selectedIDs.contains(session.id) ? Color.green.opacity(0.08) : Color.clear)
         .contentShape(Rectangle())
     }
+}
 
-    private func labelTag(_ name: String) -> some View {
+// MARK: - Label Tag
+
+private struct LabelTagView: View {
+    let name: String
+
+    var body: some View {
         HStack(spacing: 3) {
             Image(systemName: "tag.fill")
-                .font(.system(size: 8))
+                .font(.caption2)
             Text(name.uppercased())
-                .font(.system(size: 10, weight: .bold))
+                .font(.caption2).bold()
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
         .background(.blue, in: Capsule())
     }
+}
 
-    private func selectCircle(id: UUID) -> some View {
-        let selected = viewModel.selectedIDs.contains(id)
-        return ZStack {
+// MARK: - Select Circle
+
+private struct SelectCircleView: View {
+    let id: UUID
+    let selectedIDs: Set<UUID>
+
+    var body: some View {
+        let selected = selectedIDs.contains(id)
+        ZStack {
             Circle()
                 .fill(selected ? Color.green : Color.clear)
                 .overlay(Circle().stroke(selected ? Color.green : Color.gray, lineWidth: 2))
                 .frame(width: 22, height: 22)
             if selected {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.caption2).bold()
                     .foregroundStyle(.black)
             }
         }
     }
+}
 
-    private func popoverMenu(session: GigRecordingSession) -> some View {
-        VStack(spacing: 0) {
-            Button {
-                activePopoverID = nil
-                showUploadAlert = true
-            } label: {
-                Label("Submit", systemImage: "arrow.up.circle")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-            }
-            Divider()
-            Button(role: .destructive) {
-                activePopoverID = nil
-                viewModel.delete(session: session)
-            } label: {
-                Label("Delete", systemImage: "trash")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-            }
-        }
-        .frame(minWidth: 160)
-        .presentationCompactAdaptation(.popover)
-    }
+// MARK: - Bottom Bar
 
-    // MARK: - Toolbar
+private struct BottomBarView: View {
+    @Bindable var viewModel: GigRecordingsLibraryViewModel
+    @Binding var showUploadAlert: Bool
+    @Binding var showDeleteSelectedConfirmation: Bool
 
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        if viewModel.isSelectMode {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Select All") { viewModel.selectAll() }
-            }
-            ToolbarItem(placement: .principal) {
-                Text("\(viewModel.selectedIDs.count) Selected").bold()
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Done") { viewModel.clearSelection() }
-            }
-        } else if !viewModel.sessions.isEmpty {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Select") { viewModel.isSelectMode = true }
-            }
-        }
-    }
-
-    // MARK: - Bottom Bar
-
-    private var bottomBar: some View {
+    var body: some View {
         HStack {
-            Button(role: .destructive) {
-                viewModel.deleteSelected()
-            } label: {
-                Label("Delete (\(viewModel.selectedIDs.count))", systemImage: "trash")
-                    .font(.subheadline).bold()
+            Button("Delete (\(viewModel.selectedIDs.count))", systemImage: "trash", role: .destructive) {
+                showDeleteSelectedConfirmation = true
             }
+            .font(.subheadline).bold()
             .disabled(viewModel.selectedIDs.isEmpty)
 
             Spacer()
 
-            Button {
+            Button("Submit (\(viewModel.selectedIDs.count))", systemImage: "arrow.up.circle") {
                 showUploadAlert = true
-            } label: {
-                Label("Submit (\(viewModel.selectedIDs.count))", systemImage: "arrow.up.circle")
-                    .font(.subheadline).bold()
             }
+            .font(.subheadline).bold()
             .disabled(viewModel.selectedIDs.isEmpty)
         }
         .padding(.horizontal, 24)

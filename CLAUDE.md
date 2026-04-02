@@ -137,7 +137,8 @@ App root → AuthRouter (checks persisted session in Keychain on launch)
                     │                             ├── Submit → (placeholder, upload TBD)
                     │                             └── Delete → back to GigCollectionView
                     └── "View Recordings" button → GigRecordingsLibraryView
-                          ├── ⋯ per row → Submit / Delete (single)
+                          ├── swipe trailing → Delete (single, with confirmation)
+                          ├── swipe leading → Submit (single, placeholder)
                           └── Select mode → Submit (N) / Delete (N) bottom bar
 ```
 
@@ -299,7 +300,7 @@ Response: { "submissionId": "uuid" }
 - **GigCollectionView** — label list for an accepted application. Header: `<GigTitle> - <CompanyName>`. Labels shown with green left accent bar, duration, rate, description (if any), chevron. Hint at bottom: "Tap any label to begin". Entry point from ApplicationDetailView "Start Collecting Data" button.
 - **LabelRecordingView** — full-screen recording. Label name above red REC badge. Circular red arc timer counts down from `duration_seconds`. No live sensor data shown. "Stop Early" button. Auto-ends when timer reaches zero.
 - **RecordingSummaryView** — shown after recording ends. Displays: label name, recorded duration, frame count. Buttons: **Done** (back to GigCollectionView), **Submit** (placeholder — upload TBD), **Delete** (discard + back).
-- **GigRecordingsLibraryView** — all locally saved recordings for this gig. Title: `<GigTitle> - <CompanyName>`. Flat list ordered newest-first. Each row: timestamp + blue label tag + frame count. ⋯ popover per row (Submit / Delete). "Select" button top-right for bulk mode → bottom bar with Submit (N) / Delete (N).
+- **GigRecordingsLibraryView** — all locally saved recordings for this gig. Title: `<GigTitle> - <CompanyName>`. Flat list ordered newest-first. Each row: timestamp + blue label tag + frame count. Swipe trailing to Delete (with confirmation alert), swipe leading to Submit (placeholder). "Select" button top-right for bulk mode → bottom bar with Submit (N) / Delete (N).
 
 ### Countdown Overlay
 - 10-second full-screen overlay before recording begins.
