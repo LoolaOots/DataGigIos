@@ -37,8 +37,8 @@ struct AuthView: View {
 
                 // MARK: Buttons
                 VStack(spacing: 12) {
-                    appleButton
-                    emailButton
+                    AppleSignInButton(isLoading: isAppleLoading, onTap: handleAppleSignIn)
+                    EmailSignInButton(onTap: { showEmailEntry = true })
                 }
                 .padding(.horizontal)
 
@@ -77,41 +77,6 @@ struct AuthView: View {
         }
     }
 
-    // MARK: - Apple button
-
-    private var appleButton: some View {
-        Button(action: handleAppleSignIn) {
-            HStack {
-                if isAppleLoading {
-                    ProgressView()
-                        .tint(.white)
-                } else {
-                    Image(systemName: "applelogo")
-                }
-                Text("Continue with Apple")
-                    .bold()
-            }
-            .frame(maxWidth: .infinity, minHeight: 50)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(.black)
-        .disabled(isAppleLoading)
-    }
-
-    // MARK: - Email button
-
-    private var emailButton: some View {
-        Button(action: { showEmailEntry = true }) {
-            HStack {
-                Image(systemName: "envelope")
-                Text("Continue with Email")
-                    .bold()
-            }
-            .frame(maxWidth: .infinity, minHeight: 50)
-        }
-        .buttonStyle(.bordered)
-    }
-
     // MARK: - Apple sign-in action
 
     private func handleAppleSignIn() {
@@ -126,6 +91,44 @@ struct AuthView: View {
             }
             isAppleLoading = false
         }
+    }
+}
+
+// MARK: - Apple Sign In Button
+
+private struct AppleSignInButton: View {
+    let isLoading: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            Group {
+                if isLoading {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Label("Continue with Apple", systemImage: "applelogo")
+                }
+            }
+            .bold()
+            .frame(maxWidth: .infinity, minHeight: 50)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.black)
+        .disabled(isLoading)
+    }
+}
+
+// MARK: - Email Sign In Button
+
+private struct EmailSignInButton: View {
+    let onTap: () -> Void
+
+    var body: some View {
+        Button("Continue with Email", systemImage: "envelope", action: onTap)
+            .bold()
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .buttonStyle(.bordered)
     }
 }
 

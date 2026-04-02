@@ -32,6 +32,8 @@ struct OTPEntryView: View {
     @State private var isResending = false
     @State private var errorMessage: String?
     @State private var resendMessage: String?
+    @State private var verifySucceeded = false
+    @State private var verifyFailed = false
 
     @FocusState private var focusedField: Int?
 
@@ -64,7 +66,7 @@ struct OTPEntryView: View {
             }
 
             // Digit input row
-            digitRow
+            DigitRow(digits: $digits, focusedField: $focusedField, advance: advance)
 
             // Error / resend messages
             if let errorMessage {
@@ -119,35 +121,8 @@ struct OTPEntryView: View {
         .onAppear {
             focusedField = 0
         }
-    }
-
-    // MARK: - Digit row
-
-    private var digitRow: some View {
-        HStack(spacing: 12) {
-            ForEach(0..<6, id: \.self) { index in
-                DigitCell(
-                    digit: $digits[index],
-                    isFocused: focusedField == index,
-                    onCommit: {
-                        advance(from: index)
-                    }
-                )
-                .focused($focusedField, equals: index)
-                .onChange(of: digits[index]) { _, newValue in
-                    // Keep only last character entered
-                    if newValue.count > 1 {
-                        digits[index] = String(newValue.suffix(1))
-                    }
-                    // Filter to digits only
-                    digits[index] = digits[index].filter(\.isNumber)
-                    if !digits[index].isEmpty {
-                        advance(from: index)
-                    }
-                }
-            }
-        }
-        .padding(.horizontal)
+        .sensoryFeedback(.success, trigger: verifySucceeded)
+        .sensoryFeedback(.error, trigger: verifyFailed)
     }
 
     private func advance(from index: Int) {
@@ -179,9 +154,11 @@ struct OTPEntryView: View {
                     userId:       response.userId
                 )
                 authRouter.saveSession(session)
+                verifySucceeded = true
                 dismiss()
             } catch {
                 errorMessage = error.localizedDescription
+                verifyFailed.toggle()
             }
             isVerifying = false
         }
@@ -210,6 +187,41 @@ struct OTPEntryView: View {
             }
             isResending = false
         }
+    }
+}
+
+// MARK: - DigitRow
+
+private struct DigitRow: View {
+    @Binding var digits: [String]
+    @FocusState.Binding var focusedField: Int?
+    let advance: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(0..<6, id: \.self) { index in
+                DigitCell(
+                    digit: $digits[index],
+                    isFocused: focusedField == index,
+                    onCommit: {
+                        advance(index)
+                    }
+                )
+                .focused($focusedField, equals: index)
+                .onChange(of: digits[index]) { _, newValue in
+                    // Keep only last character entered
+                    if newValue.count > 1 {
+                        digits[index] = String(newValue.suffix(1))
+                    }
+                    // Filter to digits only
+                    digits[index] = digits[index].filter(\.isNumber)
+                    if !digits[index].isEmpty {
+                        advance(index)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal)
     }
 }
 

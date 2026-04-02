@@ -1,14 +1,20 @@
+import Combine
 import SwiftUI
 
 struct LabelRecordingView: View {
     @Bindable var viewModel: GigCollectionViewModel
-    @State private var timeRemaining: Int = 0
-    @State private var timer: Timer?
+    @State private var timeRemaining: Int
+    @State private var timerCancellable: AnyCancellable?
 
     private var intended: Int { viewModel.selectedLabel?.durationSeconds ?? 1 }
     private var progress: Double {
         guard intended > 0 else { return 0 }
         return 1.0 - Double(timeRemaining) / Double(intended)
+    }
+
+    init(viewModel: GigCollectionViewModel) {
+        self.viewModel = viewModel
+        _timeRemaining = State(initialValue: viewModel.selectedLabel?.durationSeconds ?? 0)
     }
 
     var body: some View {
@@ -55,12 +61,11 @@ struct LabelRecordingView: View {
 
             Spacer()
 
-            Button("Stop Early") {
+            Button("Cancel", role: .destructive) {
                 stopTimer()
                 viewModel.stopEarlyAndDiscard()
             }
             .buttonStyle(.bordered)
-            .tint(.white)
             .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -71,8 +76,9 @@ struct LabelRecordingView: View {
 
     private func startTimer() {
         timeRemaining = intended
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] _ in
-            Task { @MainActor in
+        timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { _ in
                 if timeRemaining > 0 {
                     timeRemaining -= 1
                 }
@@ -81,12 +87,11 @@ struct LabelRecordingView: View {
                     viewModel.stopRecording()
                 }
             }
-        }
     }
 
     private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
+        timerCancellable?.cancel()
+        timerCancellable = nil
     }
 
     private func formattedTime(_ seconds: Int) -> String {

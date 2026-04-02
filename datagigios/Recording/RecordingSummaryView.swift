@@ -5,6 +5,7 @@ struct RecordingSummaryView: View {
     @Bindable var viewModel: GigCollectionViewModel
     @State private var showUploadAlert = false
     @State private var storageFull = false
+    @State private var showDiscardConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,9 +39,9 @@ struct RecordingSummaryView: View {
 
                 // Stats
                 VStack(spacing: 12) {
-                    statRow(label: "Label", value: session.labelName)
-                    statRow(label: "Duration", value: formattedSeconds(actualDurationSeconds))
-                    statRow(label: "Frames", value: "\(session.frames.count)")
+                    StatRow(label: "Label", value: session.labelName)
+                    StatRow(label: "Duration", value: formattedSeconds(actualDurationSeconds))
+                    StatRow(label: "Frames", value: "\(session.frames.count)")
                 }
                 .padding()
                 .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
@@ -56,7 +57,7 @@ struct RecordingSummaryView: View {
         .safeAreaInset(edge: .bottom) {
             HStack {
                 Button(role: .destructive) {
-                    viewModel.discardAndDismiss()
+                    showDiscardConfirmation = true
                 } label: {
                     Label("Delete", systemImage: "trash")
                         .font(.subheadline).bold()
@@ -90,13 +91,13 @@ struct RecordingSummaryView: View {
         } message: {
             Text("Storage full — delete recordings to free space")
         }
-    }
-
-    private func statRow(label: String, value: String) -> some View {
-        HStack {
-            Text(label).foregroundStyle(.secondary)
-            Spacer()
-            Text(value).bold().foregroundStyle(.white)
+        .alert("Discard Recording?", isPresented: $showDiscardConfirmation) {
+            Button("Discard", role: .destructive) {
+                viewModel.discardAndDismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This action cannot be undone.")
         }
     }
 
@@ -107,5 +108,20 @@ struct RecordingSummaryView: View {
 
     private func formattedSeconds(_ seconds: Int) -> String {
         Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond(padMinuteToLength: 1)))
+    }
+}
+
+// MARK: - StatRow
+
+private struct StatRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).bold().foregroundStyle(.white)
+        }
     }
 }

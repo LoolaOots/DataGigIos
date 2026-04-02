@@ -35,24 +35,18 @@ struct LandingView: View {
 
                 // MARK: Actions
                 VStack(spacing: 12) {
-                    Button(action: { path.append(NavDestination.gigList) }) {
-                        HStack {
-                            Image(systemName: "briefcase")
-                            Text("Browse Gigs")
-                                .bold()
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 50)
+                    Button("Browse Gigs", systemImage: "briefcase") {
+                        path.append(NavDestination.gigList)
                     }
+                    .bold()
+                    .frame(maxWidth: .infinity, minHeight: 50)
                     .buttonStyle(.borderedProminent)
 
-                    Button(action: { showAuth = true }) {
-                        HStack {
-                            Image(systemName: "person.crop.circle")
-                            Text("Sign Up / Sign In")
-                                .bold()
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 50)
+                    Button("Sign Up / Sign In", systemImage: "person.crop.circle") {
+                        showAuth = true
                     }
+                    .bold()
+                    .frame(maxWidth: .infinity, minHeight: 50)
                     .buttonStyle(.bordered)
                 }
                 .padding(.horizontal)

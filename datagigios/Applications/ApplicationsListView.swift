@@ -26,15 +26,18 @@ struct ApplicationsListView: View {
                 ContentUnavailableView(
                     "No Applications",
                     systemImage: "doc.text",
-                    description: Text(viewModel.filter == .all ? "You haven't applied to any gigs yet." : "No \(viewModel.filter.rawValue.lowercased()) applications.")
+                    description: Text(viewModel.filter == .all ? "You haven't applied to any gigs yet" : "No \(viewModel.filter.rawValue.lowercased()) applications")
                 )
             } else {
-                applicationList
+                ApplicationList(
+                    viewModel: viewModel,
+                    selectedApplicationId: $selectedApplicationId
+                )
             }
         }
         .navigationTitle("My Applications")
         .safeAreaInset(edge: .top) {
-            filterPills
+            FilterPills(viewModel: viewModel)
                 .padding(.vertical, 8)
                 .background(.regularMaterial)
         }
@@ -48,10 +51,14 @@ struct ApplicationsListView: View {
             await viewModel.load(accessToken: accessToken)
         }
     }
+}
 
-    // MARK: - Filter pills
+// MARK: - FilterPills
 
-    private var filterPills: some View {
+private struct FilterPills: View {
+    @Bindable var viewModel: ApplicationsViewModel
+
+    var body: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(ApplicationFilter.allCases) { filter in
@@ -66,11 +73,19 @@ struct ApplicationsListView: View {
             .padding(.horizontal)
         }
         .scrollIndicators(.hidden)
+        .sensoryFeedback(.selection, trigger: viewModel.filter) { old, new in
+            old != new
+        }
     }
+}
 
-    // MARK: - Application list
+// MARK: - ApplicationList
 
-    private var applicationList: some View {
+private struct ApplicationList: View {
+    let viewModel: ApplicationsViewModel
+    @Binding var selectedApplicationId: String?
+
+    var body: some View {
         List(viewModel.filteredApplications) { application in
             Button {
                 selectedApplicationId = application.id
@@ -78,8 +93,19 @@ struct ApplicationsListView: View {
                 ApplicationRowView(application: application)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("View \(application.gigTitle) application")
+            .accessibilityHint("Status: \(statusLabel(for: application.status))")
         }
-        .listStyle(.plain)
+        .listStyle(.insetGrouped)
+    }
+}
+
+private func statusLabel(for status: String) -> String {
+    switch status {
+    case "accepted": return "Active"
+    case "pending": return "Pending"
+    case "denied": return "Denied"
+    default: return status.capitalized
     }
 }
 

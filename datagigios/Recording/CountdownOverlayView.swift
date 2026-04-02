@@ -1,9 +1,11 @@
 import Combine
 import SwiftUI
 
+private let countdownSeconds = 10
+
 struct CountdownOverlayView: View {
     @Bindable var viewModel: GigCollectionViewModel
-    @State private var count = 10
+    @State private var count = countdownSeconds
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -32,12 +34,11 @@ struct CountdownOverlayView: View {
 
             Spacer()
 
-            Button("Cancel") {
+            Button("Cancel", role: .destructive) {
                 timer.upstream.connect().cancel()
                 viewModel.cancelCountdown()
             }
             .buttonStyle(.bordered)
-            .tint(.white)
             .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

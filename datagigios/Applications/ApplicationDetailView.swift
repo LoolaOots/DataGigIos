@@ -26,7 +26,12 @@ struct ApplicationDetailView: View {
                     description: Text(errorMessage)
                 )
             } else if let detail = viewModel.selectedDetail {
-                detailContent(detail: detail)
+                DetailContent(
+                    detail: detail,
+                    showCollection: $showCollection,
+                    showPermissionsDenied: $showPermissionsDenied,
+                    checkPermissions: { permissionsManager.check(onResult: $0) }
+                )
             }
         }
         .navigationTitle(viewModel.selectedDetail?.gigTitle ?? "Application")
@@ -51,10 +56,17 @@ struct ApplicationDetailView: View {
             )
         }
     }
+}
 
-    // MARK: - Detail content
+// MARK: - DetailContent
 
-    private func detailContent(detail: ApplicationDetail) -> some View {
+private struct DetailContent: View {
+    let detail: ApplicationDetail
+    @Binding var showCollection: Bool
+    @Binding var showPermissionsDenied: Bool
+    let checkPermissions: (@escaping (PermissionsManager.PermissionResult) -> Void) -> Void
+
+    var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // Status banner
@@ -93,7 +105,7 @@ struct ApplicationDetailView: View {
                 if detail.status == "accepted" {
                     VStack(spacing: 12) {
                         Button {
-                            permissionsManager.check { result in
+                            checkPermissions { result in
                                 switch result {
                                 case .granted: showCollection = true
                                 case .denied:  showPermissionsDenied = true

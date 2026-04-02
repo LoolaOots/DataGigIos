@@ -17,9 +17,9 @@ struct ApplyView: View {
 
     var body: some View {
         Form {
-            deviceTypeSection
+            DeviceTypeSection(viewModel: viewModel)
 
-            noteSection
+            NoteSection(viewModel: viewModel, noteCharLimit: noteCharLimit)
 
             if let errorMessage = viewModel.error {
                 Section {
@@ -47,13 +47,20 @@ struct ApplyView: View {
         .onChange(of: viewModel.submitted) { _, submitted in
             if submitted { dismiss() }
         }
+        .sensoryFeedback(.success, trigger: viewModel.submitted)
+        .sensoryFeedback(.error, trigger: viewModel.error) { old, new in
+            old == nil && new != nil
+        }
         .interactiveDismissDisabled(viewModel.isLoading)
     }
+}
 
-    // MARK: - Device type section
+// MARK: - DeviceTypeSection
 
-    @ViewBuilder
-    private var deviceTypeSection: some View {
+private struct DeviceTypeSection: View {
+    @Bindable var viewModel: ApplyViewModel
+
+    var body: some View {
         Section("Device Type") {
             if viewModel.availableDeviceTypes.count == 1 {
                 Label(deviceTypeLabel(viewModel.selectedDeviceType), systemImage: deviceTypeIcon(viewModel.selectedDeviceType))
@@ -69,9 +76,30 @@ struct ApplyView: View {
         }
     }
 
-    // MARK: - Note section
+    private func deviceTypeIcon(_ type: String) -> String {
+        switch type {
+        case "apple_watch": return "applewatch"
+        case "generic_android": return "iphone.gen1"
+        default: return "iphone"
+        }
+    }
 
-    private var noteSection: some View {
+    private func deviceTypeLabel(_ type: String) -> String {
+        switch type {
+        case "apple_watch": return "Apple Watch"
+        case "generic_android": return "Android"
+        default: return "iPhone"
+        }
+    }
+}
+
+// MARK: - NoteSection
+
+private struct NoteSection: View {
+    @Bindable var viewModel: ApplyViewModel
+    let noteCharLimit: Int
+
+    var body: some View {
         Section {
             ZStack(alignment: .bottomTrailing) {
                 TextEditor(text: $viewModel.noteFromUser)
@@ -91,24 +119,6 @@ struct ApplyView: View {
             Text("Note (Optional)")
         } footer: {
             Text("Add any relevant information for the company.")
-        }
-    }
-
-    // MARK: - Device type helpers
-
-    private func deviceTypeIcon(_ type: String) -> String {
-        switch type {
-        case "apple_watch": return "applewatch"
-        case "generic_android": return "iphone.gen1"
-        default: return "iphone"
-        }
-    }
-
-    private func deviceTypeLabel(_ type: String) -> String {
-        switch type {
-        case "apple_watch": return "Apple Watch"
-        case "generic_android": return "Android"
-        default: return "iPhone"
         }
     }
 }

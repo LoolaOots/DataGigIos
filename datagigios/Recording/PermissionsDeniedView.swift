@@ -9,6 +9,8 @@ struct PermissionsDeniedView: View {
     @State private var locationManager = CLLocationManager()
     @State private var tryAgainShown = true
     @State private var copy = "Location and motion access are required to collect sensor data for this gig."
+    @State private var didAppear = false
+    @State private var openSettingsTapped = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -18,7 +20,7 @@ struct PermissionsDeniedView: View {
                 .foregroundStyle(.orange)
 
             Text("Permissions Required")
-                .font(.title2).fontWeight(.bold)
+                .font(.title2).bold()
 
             Text(copy)
                 .font(.body)
@@ -28,6 +30,7 @@ struct PermissionsDeniedView: View {
 
             VStack(spacing: 12) {
                 Button("Open Settings") {
+                    openSettingsTapped.toggle()
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
                     }
@@ -49,6 +52,11 @@ struct PermissionsDeniedView: View {
             Spacer()
         }
         .padding()
+        .onAppear {
+            didAppear = true
+        }
+        .sensoryFeedback(.warning, trigger: didAppear)
+        .sensoryFeedback(.warning, trigger: openSettingsTapped)
     }
 
     private func checkPermissions() {
