@@ -191,17 +191,24 @@ private struct SessionRowView: View {
     var body: some View {
         if viewModel.isSelectMode {
             let isSelected = viewModel.selectedIDs.contains(session.id)
-            Button { viewModel.toggleSelect(session.id) } label: { rowBody }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(session.labelName) recording, \(session.startTime.formatted(date: .abbreviated, time: .shortened))")
-                .accessibilityValue(isSelected ? "Selected" : "Not selected")
-                .accessibilityHint("Double-tap to \(isSelected ? "deselect" : "select")")
+            Button { viewModel.toggleSelect(session.id) } label: {
+                SessionRowBodyView(viewModel: viewModel, session: session)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(session.labelName) recording, \(session.startTime.formatted(date: .abbreviated, time: .shortened))")
+            .accessibilityValue(isSelected ? "Selected" : "Not selected")
+            .accessibilityHint("Double-tap to \(isSelected ? "deselect" : "select")")
         } else {
-            rowBody
+            SessionRowBodyView(viewModel: viewModel, session: session)
         }
     }
+}
 
-    private var rowBody: some View {
+private struct SessionRowBodyView: View {
+    @Bindable var viewModel: GigRecordingsLibraryViewModel
+    let session: GigRecordingSession
+
+    var body: some View {
         HStack(spacing: 10) {
             if viewModel.isSelectMode {
                 SelectCircleView(id: session.id, selectedIDs: viewModel.selectedIDs)

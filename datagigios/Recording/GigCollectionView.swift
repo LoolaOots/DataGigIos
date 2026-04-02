@@ -3,6 +3,7 @@ import SwiftUI
 struct GigCollectionView: View {
     @Bindable var viewModel: GigCollectionViewModel
     @State private var showBeginSheet = false
+    @State private var pendingStart = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -10,9 +11,22 @@ struct GigCollectionView: View {
         }
         .navigationTitle("\(viewModel.detail.gigDetail.title) - \(viewModel.detail.gigDetail.companyName)")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showBeginSheet) {
+        .sheet(isPresented: $showBeginSheet, onDismiss: {
+            if pendingStart {
+                pendingStart = false
+                viewModel.recordingPhase = .countdown
+            } else {
+                // Dismissed by Cancel or swipe — clear the selection
+                viewModel.selectedLabel = nil
+            }
+        }) {
             if let label = viewModel.selectedLabel {
-                BeginSheetView(viewModel: viewModel, label: label, showBeginSheet: $showBeginSheet)
+                BeginSheetView(
+                    viewModel: viewModel,
+                    label: label,
+                    showBeginSheet: $showBeginSheet,
+                    pendingStart: $pendingStart
+                )
             }
         }
         .fullScreenCover(isPresented: Binding(
@@ -22,6 +36,18 @@ struct GigCollectionView: View {
             RecordingCoordinatorView(viewModel: viewModel)
         }
     }
+}
+
+// MARK: - Shared Formatters
+
+private func formattedDuration(_ seconds: Int) -> String {
+    let m = seconds / 60
+    let s = seconds % 60
+    return s == 0 ? "\(m)m" : "\(m)m \(s)s"
+}
+
+private func formattedRate(_ cents: Int) -> String {
+    (Double(cents) / 100.0).formatted(.currency(code: "USD"))
 }
 
 // MARK: - Label List
@@ -96,17 +122,6 @@ private struct LabelRowView: View {
                 .padding(.trailing, 16)
                 .accessibilityHidden(true)
         }
-        .padding(.leading, 0)
-    }
-
-    private func formattedDuration(_ seconds: Int) -> String {
-        let m = seconds / 60
-        let s = seconds % 60
-        return s == 0 ? "\(m)m" : "\(m)m \(s)s"
-    }
-
-    private func formattedRate(_ cents: Int) -> String {
-        return (Double(cents) / 100.0).formatted(.currency(code: "USD"))
     }
 }
 
@@ -116,6 +131,7 @@ private struct BeginSheetView: View {
     @Bindable var viewModel: GigCollectionViewModel
     let label: ApplicationLabel
     @Binding var showBeginSheet: Bool
+    @Binding var pendingStart: Bool
 
     var body: some View {
         VStack(spacing: 24) {
@@ -155,8 +171,8 @@ private struct BeginSheetView: View {
 
             VStack(spacing: 12) {
                 Button {
+                    pendingStart = true
                     showBeginSheet = false
-                    viewModel.beginLabel(label)
                 } label: {
                     Text("Start")
                         .frame(maxWidth: .infinity)
@@ -166,7 +182,6 @@ private struct BeginSheetView: View {
 
                 Button(role: .destructive) {
                     showBeginSheet = false
-                    viewModel.selectedLabel = nil
                 } label: {
                     Text("Cancel")
                         .frame(maxWidth: .infinity)
@@ -178,16 +193,6 @@ private struct BeginSheetView: View {
             .padding(.bottom, 24)
         }
         .presentationDetents([.medium])
-    }
-
-    private func formattedDuration(_ seconds: Int) -> String {
-        let m = seconds / 60
-        let s = seconds % 60
-        return s == 0 ? "\(m)m" : "\(m)m \(s)s"
-    }
-
-    private func formattedRate(_ cents: Int) -> String {
-        return (Double(cents) / 100.0).formatted(.currency(code: "USD"))
     }
 }
 

@@ -1,9 +1,11 @@
 import Combine
 import SwiftUI
 
+private let countdownSeconds = 10
+
 struct CountdownOverlayView: View {
     @Bindable var viewModel: GigCollectionViewModel
-    @State private var count = 10
+    @State private var count = countdownSeconds
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 

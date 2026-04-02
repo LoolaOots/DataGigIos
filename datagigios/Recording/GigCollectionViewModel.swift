@@ -20,15 +20,9 @@ final class GigCollectionViewModel {
 
     // MARK: - Actions
 
-    /// Called when user taps Start on the "Begin <Label>" sheet
-    func beginLabel(_ label: ApplicationLabel) {
-        selectedLabel = label
-        recordingPhase = .countdown
-    }
-
     /// Called by CountdownOverlayView when countdown finishes
     func countdownFinished() {
-        guard let label = selectedLabel else { return }
+        guard recordingPhase == .countdown, let label = selectedLabel else { return }
         sensorManager.startRecording(
             label: label,
             gigId: detail.id,
