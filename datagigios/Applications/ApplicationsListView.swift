@@ -12,7 +12,26 @@ struct ApplicationsListView: View {
     @State private var selectedApplicationId: String?
 
     var body: some View {
-        Group {
+        List {
+            // Filter pills — always visible as first row
+            FilterPills(viewModel: viewModel)
+                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+
+            ForEach(viewModel.filteredApplications) { application in
+                Button {
+                    selectedApplicationId = application.id
+                } label: {
+                    ApplicationRowView(application: application)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("View \(application.gigTitle) application")
+                .accessibilityHint("Status: \(statusLabel(for: application.status))")
+            }
+        }
+        .listStyle(.insetGrouped)
+        .overlay {
             if viewModel.isLoading && viewModel.applications.isEmpty {
                 ProgressView("Loading…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -28,19 +47,9 @@ struct ApplicationsListView: View {
                     systemImage: "doc.text",
                     description: Text(viewModel.filter == .all ? "You haven't applied to any gigs yet" : "No \(viewModel.filter.rawValue.lowercased()) applications")
                 )
-            } else {
-                ApplicationList(
-                    viewModel: viewModel,
-                    selectedApplicationId: $selectedApplicationId
-                )
             }
         }
         .navigationTitle("My Applications")
-        .safeAreaInset(edge: .top) {
-            FilterPills(viewModel: viewModel)
-                .padding(.vertical, 8)
-                .background(.regularMaterial)
-        }
         .navigationDestination(item: $selectedApplicationId) { id in
             ApplicationDetailView(applicationId: id, accessToken: accessToken)
         }
@@ -49,6 +58,9 @@ struct ApplicationsListView: View {
         }
         .refreshable {
             await viewModel.load(accessToken: accessToken)
+        }
+        .sensoryFeedback(.selection, trigger: viewModel.filter) { old, new in
+            old != new
         }
     }
 }
@@ -73,39 +85,6 @@ private struct FilterPills: View {
             .padding(.horizontal)
         }
         .scrollIndicators(.hidden)
-        .sensoryFeedback(.selection, trigger: viewModel.filter) { old, new in
-            old != new
-        }
-    }
-}
-
-// MARK: - ApplicationList
-
-private struct ApplicationList: View {
-    let viewModel: ApplicationsViewModel
-    @Binding var selectedApplicationId: String?
-
-    var body: some View {
-        List(viewModel.filteredApplications) { application in
-            Button {
-                selectedApplicationId = application.id
-            } label: {
-                ApplicationRowView(application: application)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("View \(application.gigTitle) application")
-            .accessibilityHint("Status: \(statusLabel(for: application.status))")
-        }
-        .listStyle(.insetGrouped)
-    }
-}
-
-private func statusLabel(for status: String) -> String {
-    switch status {
-    case "accepted": return "Active"
-    case "pending": return "Pending"
-    case "denied": return "Denied"
-    default: return status.capitalized
     }
 }
 
@@ -130,6 +109,15 @@ private struct FilterPillButton: View {
                 .foregroundStyle(isSelected ? .white : .primary)
         }
         .buttonStyle(.plain)
+    }
+}
+
+private func statusLabel(for status: String) -> String {
+    switch status {
+    case "accepted": return "Active"
+    case "pending": return "Pending"
+    case "denied": return "Denied"
+    default: return status.capitalized
     }
 }
 

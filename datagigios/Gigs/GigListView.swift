@@ -9,10 +9,26 @@ struct GigListView: View {
     @State private var viewModel = GigListViewModel()
 
     var body: some View {
-        Group {
+        List {
             if viewModel.isLoading && viewModel.gigs.isEmpty {
-                GigLoadingView()
-            } else if viewModel.error != nil, viewModel.gigs.isEmpty {
+                ForEach(0..<6, id: \.self) { _ in
+                    GigRowSkeletonView()
+                        .listRowSeparator(.hidden)
+                }
+            } else {
+                ForEach(viewModel.gigs) { gig in
+                    NavigationLink(value: NavDestination.gigDetail(gig.id)) {
+                        GigRowView(gig: gig)
+                    }
+                    .accessibilityLabel("View \(gig.title) by \(gig.companyName), \(payoutRange(for: gig))")
+                    .accessibilityHint("Opens gig details")
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .allowsHitTesting(!(viewModel.isLoading && viewModel.gigs.isEmpty))
+        .overlay {
+            if viewModel.error != nil, viewModel.gigs.isEmpty {
                 ContentUnavailableView {
                     Label("Unable to Load Gigs", systemImage: "exclamationmark.triangle.fill")
                 } description: {
@@ -23,32 +39,13 @@ struct GigListView: View {
                     }
                     .buttonStyle(.borderedProminent)
                 }
-            } else {
-                GigList(viewModel: viewModel)
             }
         }
         .navigationTitle("Gigs")
-        .task {
+        .refreshable {
             await viewModel.loadGigs()
         }
-    }
-}
-
-// MARK: - GigList
-
-private struct GigList: View {
-    @Bindable var viewModel: GigListViewModel
-
-    var body: some View {
-        List(viewModel.gigs) { gig in
-            NavigationLink(value: NavDestination.gigDetail(gig.id)) {
-                GigRowView(gig: gig)
-            }
-            .accessibilityLabel("View \(gig.title) by \(gig.companyName), \(payoutRange(for: gig))")
-            .accessibilityHint("Opens gig details")
-        }
-        .listStyle(.insetGrouped)
-        .refreshable {
+        .task {
             await viewModel.loadGigs()
         }
     }
@@ -58,21 +55,6 @@ private func payoutRange(for gig: Gig) -> String {
     let min = (Double(gig.minRateCents) / 100).formatted(.currency(code: "USD"))
     let max = (Double(gig.maxRateCents) / 100).formatted(.currency(code: "USD"))
     return "\(min)–\(max)"
-}
-
-// MARK: - GigLoadingView
-
-private struct GigLoadingView: View {
-    var body: some View {
-        List {
-            ForEach(0..<6, id: \.self) { _ in
-                GigRowSkeletonView()
-                    .listRowSeparator(.hidden)
-            }
-        }
-        .listStyle(.plain)
-        .allowsHitTesting(false)
-    }
 }
 
 // MARK: - GigRowView
