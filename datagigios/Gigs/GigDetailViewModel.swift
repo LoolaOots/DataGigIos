@@ -34,7 +34,9 @@ final class GigDetailViewModel {
 
     var applyState: ApplyState {
         guard session != nil else { return .signInRequired }
-        guard let gig else { return .canApply }
+        // Gig not yet loaded — fall back to signInRequired (safe: opens auth sheet,
+        // which is a no-op for a signed-in user, and cannot trigger navigation to ApplyView)
+        guard let gig else { return .signInRequired }
         let alreadyApplied = existingApplications.contains { $0.gigId == gig.id }
         return alreadyApplied ? .applied : .canApply
     }

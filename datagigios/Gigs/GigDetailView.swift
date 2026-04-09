@@ -51,7 +51,6 @@ struct GigDetailView: View {
 
                     GigLabelsSection(labels: gig.labels)
 
-                    Spacer().frame(height: 80)
                 }
                 .padding()
             }
@@ -126,7 +125,7 @@ private struct ApplyButton: View {
 
         case .applied:
             Button("Applied") {}
-                .buttonStyle(.primary)
+                .buttonStyle(.successPrimary)
                 .disabled(true)
                 .accessibilityLabel("Already applied")
         }
@@ -158,7 +157,7 @@ private struct GigHeaderSection: View {
 
                 Spacer()
 
-                Text(payoutRange)
+                Text(payoutRangeString(minCents: gig.minRateCents, maxCents: gig.maxRateCents))
                     .font(.subheadline)
                     .bold()
                     .foregroundStyle(.green)
@@ -176,14 +175,6 @@ private struct GigHeaderSection: View {
         }
     }
 
-    private var payoutRange: String {
-        guard let minCents = gig.minRateCents, let maxCents = gig.maxRateCents else {
-            return "Rate varies"
-        }
-        let min = (Double(minCents) / 100).formatted(.currency(code: "USD"))
-        let max = (Double(maxCents) / 100).formatted(.currency(code: "USD"))
-        return "\(min)–\(max)"
-    }
 }
 
 // MARK: - GigDescriptionSection
