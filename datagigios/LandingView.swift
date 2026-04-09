@@ -38,16 +38,12 @@ struct LandingView: View {
                     Button("Browse Gigs", systemImage: "briefcase") {
                         path.append(NavDestination.gigList)
                     }
-                    .bold()
-                    .frame(maxWidth: .infinity, minHeight: 50)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.primary)
 
                     Button("Sign Up / Sign In", systemImage: "person.crop.circle") {
                         showAuth = true
                     }
-                    .bold()
-                    .frame(maxWidth: .infinity, minHeight: 50)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.primary)
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 40)

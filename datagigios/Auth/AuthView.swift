@@ -102,18 +102,14 @@ private struct AppleSignInButton: View {
 
     var body: some View {
         Button(action: onTap) {
-            Group {
-                if isLoading {
-                    ProgressView()
-                        .tint(.white)
-                } else {
-                    Label("Continue with Apple", systemImage: "applelogo")
-                }
+            if isLoading {
+                ProgressView()
+                    .tint(.white)
+            } else {
+                Label("Continue with Apple", systemImage: "applelogo")
             }
-            .bold()
-            .frame(maxWidth: .infinity, minHeight: 50)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.primary)
         .tint(.black)
         .disabled(isLoading)
     }
@@ -126,9 +122,7 @@ private struct EmailSignInButton: View {
 
     var body: some View {
         Button("Continue with Email", systemImage: "envelope", action: onTap)
-            .bold()
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .buttonStyle(.bordered)
+            .buttonStyle(.primary)
     }
 }
 
