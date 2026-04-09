@@ -26,7 +26,37 @@ struct GigDetailView: View {
     }
 
     var body: some View {
-        Group {
+        ScrollView {
+            if let gig = viewModel.gig {
+                VStack(alignment: .leading, spacing: 20) {
+                    GigHeaderSection(gig: gig)
+
+                    Divider()
+
+                    GigDescriptionSection(description: gig.description)
+
+                    Divider()
+
+                    if gig.applicationDeadline != nil || gig.dataDeadline != nil {
+                        GigDeadlinesSection(
+                            applicationDeadline: gig.applicationDeadline,
+                            dataDeadline: gig.dataDeadline
+                        )
+                        Divider()
+                    }
+
+                    GigDeviceTypesSection(deviceTypes: gig.deviceTypes)
+
+                    Divider()
+
+                    GigLabelsSection(labels: gig.labels)
+
+                }
+                .padding()
+            }
+        }
+        .allowsHitTesting(!(viewModel.isLoading && viewModel.gig == nil))
+        .overlay {
             if viewModel.isLoading && viewModel.gig == nil {
                 ProgressView("Loading…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -41,13 +71,18 @@ struct GigDetailView: View {
                     }
                     .buttonStyle(.borderedProminent)
                 }
-            } else if let gig = viewModel.gig {
-                GigDetailContent(
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if let gig = viewModel.gig {
+                ApplyButton(
                     gig: gig,
                     viewModel: viewModel,
                     showAuth: $showAuth,
                     navigateToApply: $navigateToApply
                 )
+                .padding()
+                .background(.regularMaterial)
             }
         }
         .navigationTitle(viewModel.gig?.title ?? "Gig Detail")
@@ -66,53 +101,6 @@ struct GigDetailView: View {
     }
 }
 
-// MARK: - GigDetailContent
-
-private struct GigDetailContent: View {
-    let gig: GigDetail
-    @Bindable var viewModel: GigDetailViewModel
-    @Binding var showAuth: Bool
-    @Binding var navigateToApply: Bool
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Header info
-                GigHeaderSection(gig: gig)
-
-                Divider()
-
-                // Description
-                GigDescriptionSection(description: gig.description)
-
-                Divider()
-
-                // Device types
-                GigDeviceTypesSection(deviceTypes: gig.deviceTypes)
-
-                Divider()
-
-                // Labels
-                GigLabelsSection(labels: gig.labels)
-
-                // Bottom padding for sticky button
-                Spacer().frame(height: 80)
-            }
-            .padding()
-        }
-        .safeAreaInset(edge: .bottom) {
-            ApplyButton(
-                gig: gig,
-                viewModel: viewModel,
-                showAuth: $showAuth,
-                navigateToApply: $navigateToApply
-            )
-            .padding()
-            .background(.regularMaterial)
-        }
-    }
-}
-
 // MARK: - ApplyButton
 
 private struct ApplyButton: View {
@@ -127,20 +115,17 @@ private struct ApplyButton: View {
             Button("Sign in to Apply") {
                 showAuth = true
             }
-            .buttonStyle(.borderedProminent)
-            .frame(maxWidth: .infinity, minHeight: 50)
+            .buttonStyle(.primary)
 
         case .canApply:
             Button("Apply to Gig") {
                 navigateToApply = true
             }
-            .buttonStyle(.borderedProminent)
-            .frame(maxWidth: .infinity, minHeight: 50)
+            .buttonStyle(.primary)
 
         case .applied:
-            Button("Applied ✓") {}
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity, minHeight: 50)
+            Button("Applied") {}
+                .buttonStyle(.successPrimary)
                 .disabled(true)
                 .accessibilityLabel("Already applied")
         }
@@ -172,7 +157,7 @@ private struct GigHeaderSection: View {
 
                 Spacer()
 
-                Text(payoutRange(gig: gig))
+                Text(payoutRangeString(minCents: gig.minRateCents, maxCents: gig.maxRateCents))
                     .font(.subheadline)
                     .bold()
                     .foregroundStyle(.green)
@@ -190,11 +175,6 @@ private struct GigHeaderSection: View {
         }
     }
 
-    private func payoutRange(gig: GigDetail) -> String {
-        let min = (Double(gig.minRateCents) / 100).formatted(.currency(code: "USD"))
-        let max = (Double(gig.maxRateCents) / 100).formatted(.currency(code: "USD"))
-        return "\(min)–\(max)"
-    }
 }
 
 // MARK: - GigDescriptionSection
@@ -209,6 +189,36 @@ private struct GigDescriptionSection: View {
             Text(description)
                 .font(.body)
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - GigDeadlinesSection
+
+private struct GigDeadlinesSection: View {
+    let applicationDeadline: Date?
+    let dataDeadline: Date?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Deadlines")
+                .font(.headline)
+            if let deadline = applicationDeadline {
+                Label(
+                    "Apply by: \(deadline.formatted(date: .abbreviated, time: .omitted))",
+                    systemImage: "calendar.badge.clock"
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            if let deadline = dataDeadline {
+                Label(
+                    "Data due: \(deadline.formatted(date: .abbreviated, time: .omitted))",
+                    systemImage: "calendar.badge.checkmark"
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
         }
     }
 }

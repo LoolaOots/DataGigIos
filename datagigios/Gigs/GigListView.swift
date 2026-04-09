@@ -20,7 +20,7 @@ struct GigListView: View {
                     NavigationLink(value: NavDestination.gigDetail(gig.id)) {
                         GigRowView(gig: gig)
                     }
-                    .accessibilityLabel("View \(gig.title) by \(gig.companyName), \(payoutRange(for: gig))")
+                    .accessibilityLabel("View \(gig.title) by \(gig.companyName), \(payoutRangeString(minCents: gig.minRateCents, maxCents: gig.maxRateCents))")
                     .accessibilityHint("Opens gig details")
                 }
             }
@@ -51,12 +51,6 @@ struct GigListView: View {
     }
 }
 
-private func payoutRange(for gig: Gig) -> String {
-    let min = (Double(gig.minRateCents) / 100).formatted(.currency(code: "USD"))
-    let max = (Double(gig.maxRateCents) / 100).formatted(.currency(code: "USD"))
-    return "\(min)–\(max)"
-}
-
 // MARK: - GigRowView
 
 private struct GigRowView: View {
@@ -79,7 +73,7 @@ private struct GigRowView: View {
 
                 Spacer()
 
-                Text(payoutRange)
+                Text(payoutRangeString(minCents: gig.minRateCents, maxCents: gig.maxRateCents))
                     .font(.caption)
                     .bold()
                     .foregroundStyle(.green)
@@ -90,12 +84,6 @@ private struct GigRowView: View {
             }
         }
         .padding(.vertical, 4)
-    }
-
-    private var payoutRange: String {
-        let min = (Double(gig.minRateCents) / 100).formatted(.currency(code: "USD"))
-        let max = (Double(gig.maxRateCents) / 100).formatted(.currency(code: "USD"))
-        return "\(min)–\(max)"
     }
 }
 
