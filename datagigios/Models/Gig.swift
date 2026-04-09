@@ -36,8 +36,8 @@ struct GigDetail: Decodable, Identifiable {
     let applicationDeadline: Date?
     let dataDeadline: Date?
     let companyName: String
-    let minRateCents: Int
-    let maxRateCents: Int
+    let minRateCents: Int?
+    let maxRateCents: Int?
     let deviceTypes: [String]
     let labels: [GigLabel]
 }

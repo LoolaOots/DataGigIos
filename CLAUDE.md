@@ -399,7 +399,6 @@ struct GigDeviceRequirement {
 
 ## Important Rules
 
-- **No git commits** — only the human makes commits.
 - **Credentials alert** — if any code, config, or file you write or encounter contains credentials, passwords, API keys, or tokens, immediately alert the user and add a `// credentials` comment on the line immediately after.
 - **No third-party dependencies** without asking first (this includes Supabase Swift SDK — use URLSession for API calls unless instructed otherwise).
 - Keep API base URL and Supabase keys in a config/secrets file, never hardcoded in source.
