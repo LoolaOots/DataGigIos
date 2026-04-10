@@ -19,7 +19,7 @@ enum ApplyState {
 @MainActor
 final class GigDetailViewModel {
     var gig: GigDetail?
-    var isLoading = false
+    var isLoading = true
     var error: String?
 
     private let gigId: String

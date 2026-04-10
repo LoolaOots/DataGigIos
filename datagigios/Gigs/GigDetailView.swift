@@ -26,37 +26,7 @@ struct GigDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            if let gig = viewModel.gig {
-                VStack(alignment: .leading, spacing: 20) {
-                    GigHeaderSection(gig: gig)
-
-                    Divider()
-
-                    GigDescriptionSection(description: gig.description)
-
-                    Divider()
-
-                    if gig.applicationDeadline != nil || gig.dataDeadline != nil {
-                        GigDeadlinesSection(
-                            applicationDeadline: gig.applicationDeadline,
-                            dataDeadline: gig.dataDeadline
-                        )
-                        Divider()
-                    }
-
-                    GigDeviceTypesSection(deviceTypes: gig.deviceTypes)
-
-                    Divider()
-
-                    GigLabelsSection(labels: gig.labels)
-
-                }
-                .padding()
-            }
-        }
-        .allowsHitTesting(!(viewModel.isLoading && viewModel.gig == nil))
-        .overlay {
+        Group {
             if viewModel.isLoading && viewModel.gig == nil {
                 ProgressView("Loading…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -71,18 +41,47 @@ struct GigDetailView: View {
                     }
                     .buttonStyle(.borderedProminent)
                 }
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
-            if let gig = viewModel.gig {
-                ApplyButton(
-                    gig: gig,
-                    viewModel: viewModel,
-                    showAuth: $showAuth,
-                    navigateToApply: $navigateToApply
-                )
-                .padding()
-                .background(.regularMaterial)
+            } else {
+                ScrollView {
+                    if let gig = viewModel.gig {
+                        VStack(alignment: .leading, spacing: 20) {
+                            GigHeaderSection(gig: gig)
+
+                            Divider()
+
+                            GigDescriptionSection(description: gig.description)
+
+                            Divider()
+
+                            if gig.applicationDeadline != nil || gig.dataDeadline != nil {
+                                GigDeadlinesSection(
+                                    applicationDeadline: gig.applicationDeadline,
+                                    dataDeadline: gig.dataDeadline
+                                )
+                                Divider()
+                            }
+
+                            GigDeviceTypesSection(deviceTypes: gig.deviceTypes)
+
+                            Divider()
+
+                            GigLabelsSection(labels: gig.labels)
+                        }
+                        .padding()
+                    }
+                }
+                .safeAreaInset(edge: .bottom) {
+                    if let gig = viewModel.gig {
+                        ApplyButton(
+                            gig: gig,
+                            viewModel: viewModel,
+                            showAuth: $showAuth,
+                            navigateToApply: $navigateToApply
+                        )
+                        .padding()
+                        .background(.regularMaterial)
+                    }
+                }
             }
         }
         .navigationTitle(viewModel.gig?.title ?? "Gig Detail")
