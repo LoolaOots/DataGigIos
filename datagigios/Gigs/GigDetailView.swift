@@ -31,15 +31,8 @@ struct GigDetailView: View {
                 ProgressView("Loading…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if viewModel.error != nil, viewModel.gig == nil {
-                ContentUnavailableView {
-                    Label("Unable to Load Gig", systemImage: "exclamationmark.triangle.fill")
-                } description: {
-                    Text("Please try again later.")
-                } actions: {
-                    Button("Retry") {
-                        Task { await viewModel.loadGig() }
-                    }
-                    .buttonStyle(.borderedProminent)
+                GigLoadErrorView {
+                    Task { await viewModel.loadGig() }
                 }
             } else {
                 ScrollView {
@@ -348,6 +341,37 @@ private struct StatusBadge: View {
         case "completed", "cancelled": return .red
         default: return .secondary
         }
+    }
+}
+
+// MARK: - GigLoadErrorView
+
+private struct GigLoadErrorView: View {
+    let onRetry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.orange)
+
+            VStack(spacing: 8) {
+                Text("Unable to Load Gig")
+                    .font(.title2)
+                    .bold()
+
+                Text("Please try again later.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button("Retry", action: onRetry)
+                .buttonStyle(.primary)
+                .padding(.horizontal, 40)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
     }
 }
 
