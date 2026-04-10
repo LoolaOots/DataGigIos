@@ -34,8 +34,9 @@ final class GigDetailViewModel {
 
     var applyState: ApplyState {
         guard session != nil else { return .signInRequired }
-        // Gig not yet loaded — fall back to signInRequired (safe: opens auth sheet,
-        // which is a no-op for a signed-in user, and cannot trigger navigation to ApplyView)
+        // Defensive guard: ApplyButton only renders when viewModel.gig != nil (inside the
+        // else branch), so this path is unreachable in practice. Kept as a safety net
+        // against any race during state transitions.
         guard let gig else { return .signInRequired }
         let alreadyApplied = existingApplications.contains { $0.gigId == gig.id }
         return alreadyApplied ? .applied : .canApply

@@ -86,6 +86,8 @@ struct GigDetailView: View {
             AuthView()
         }
         .navigationDestination(isPresented: $navigateToApply) {
+            // Both conditions are always true here: ApplyButton only sets navigateToApply = true
+            // when applyState == .canApply, which requires session != nil and gig != nil.
             if let gig = viewModel.gig, let session {
                 ApplyView(gig: gig, session: session)
             }
@@ -352,7 +354,8 @@ private struct GigLoadErrorView: View {
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 64))
+                .font(.largeTitle)
+                .imageScale(.large)
                 .foregroundStyle(.orange)
 
             VStack(spacing: 8) {
