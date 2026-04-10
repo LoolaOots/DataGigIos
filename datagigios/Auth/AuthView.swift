@@ -3,7 +3,6 @@
 //  datagigios
 //
 
-import AuthenticationServices
 import SwiftUI
 
 struct AuthView: View {
@@ -11,6 +10,7 @@ struct AuthView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showEmailEntry = false
+    @State private var isAppleLoading = false
     @State private var appleError: String?
     @State private var appleSignInHandler = AppleSignInHandler()
 
@@ -37,23 +37,7 @@ struct AuthView: View {
 
                 // MARK: Buttons
                 VStack(spacing: 12) {
-                    SignInWithAppleButton(.signIn) { request in
-                        request.requestedScopes = [.fullName, .email]
-                    } onCompletion: { result in
-                        appleError = nil
-                        Task { @MainActor in
-                            do {
-                                let session = try await appleSignInHandler.handleCompletion(result)
-                                authRouter.saveSession(session)
-                            } catch {
-                                appleError = error.localizedDescription
-                            }
-                        }
-                    }
-                    .signInWithAppleButtonStyle(.black)
-                    .frame(maxWidth: .infinity, minHeight: 56)
-                    .clipShape(.rect(cornerRadius: 14))
-
+                    AppleSignInButton(isLoading: isAppleLoading, onTap: handleAppleSignIn)
                     EmailSignInButton(onTap: { showEmailEntry = true })
                 }
                 .padding(.horizontal)
@@ -91,6 +75,43 @@ struct AuthView: View {
                 EmailEntryView()
             }
         }
+    }
+
+    // MARK: - Apple sign-in action
+
+    private func handleAppleSignIn() {
+        isAppleLoading = true
+        appleError = nil
+        Task {
+            do {
+                let session = try await appleSignInHandler.signIn()
+                authRouter.saveSession(session)
+            } catch {
+                appleError = error.localizedDescription
+            }
+            isAppleLoading = false
+        }
+    }
+}
+
+// MARK: - Apple Sign In Button
+
+private struct AppleSignInButton: View {
+    let isLoading: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            if isLoading {
+                ProgressView()
+                    .tint(.white)
+            } else {
+                Label("Continue with Apple", systemImage: "applelogo")
+            }
+        }
+        .buttonStyle(.primary)
+        .tint(.black)
+        .disabled(isLoading)
     }
 }
 
