@@ -6,21 +6,25 @@
 import SwiftUI
 
 struct CurrentGigsView: View {
-    let applications: [Application]
+    let viewModel: DashboardViewModel
     let accessToken: String
 
     @State private var selectedApplicationId: String?
 
+    private var acceptedApplications: [Application] {
+        viewModel.applications.filter { $0.status == "accepted" }
+    }
+
     var body: some View {
         Group {
-            if applications.isEmpty {
+            if acceptedApplications.isEmpty {
                 ContentUnavailableView(
                     "No Active Gigs",
-                    systemImage: "checkmark.circle",
+                    systemImage: "checkmark.circle.fill",
                     description: Text("You don't have any accepted gigs yet. Apply to gigs and check back once accepted.")
                 )
             } else {
-                List(applications) { application in
+                List(acceptedApplications) { application in
                     Button {
                         selectedApplicationId = application.id
                     } label: {
@@ -31,6 +35,9 @@ struct CurrentGigsView: View {
                     .accessibilityHint("Tap to start collecting data")
                 }
                 .listStyle(.insetGrouped)
+                .refreshable {
+                    await viewModel.load(accessToken: accessToken)
+                }
             }
         }
         .navigationTitle("Current Gigs")
@@ -90,5 +97,14 @@ private struct CurrentGigRowView: View {
         case "generic_android": return "Android"
         default: return "iPhone"
         }
+    }
+}
+
+#Preview {
+    NavigationStack {
+        CurrentGigsView(
+            viewModel: DashboardViewModel(),
+            accessToken: ""
+        )
     }
 }

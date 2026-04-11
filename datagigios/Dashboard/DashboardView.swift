@@ -71,7 +71,7 @@ struct DashboardView: View {
                     ApplicationDetailView(applicationId: id, accessToken: authRouter.session?.accessToken ?? "")
                 case .currentGigs:
                     CurrentGigsView(
-                        applications: viewModel.applications.filter { $0.status == "accepted" },
+                        viewModel: viewModel,
                         accessToken: authRouter.session?.accessToken ?? ""
                     )
                 }
