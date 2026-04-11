@@ -13,6 +13,7 @@ enum AppDestination: Hashable {
     case applyToGig(String)
     case applicationsList
     case applicationDetail(String)
+    case currentGigs
 }
 
 // MARK: - DashboardView
@@ -68,6 +69,11 @@ struct DashboardView: View {
                     ApplicationsListView(accessToken: authRouter.session?.accessToken ?? "")
                 case .applicationDetail(let id):
                     ApplicationDetailView(applicationId: id, accessToken: authRouter.session?.accessToken ?? "")
+                case .currentGigs:
+                    CurrentGigsView(
+                        applications: viewModel.applications.filter { $0.status == "accepted" },
+                        accessToken: authRouter.session?.accessToken ?? ""
+                    )
                 }
             }
             .navigationDestination(for: NavDestination.self) { destination in
@@ -116,6 +122,16 @@ private struct DashboardContent: View {
                     activeCount: viewModel.activeCount,
                     pendingCount: viewModel.pendingCount
                 )
+
+                DashboardCardView(
+                    title: "Current Gigs",
+                    subtitle: viewModel.activeCount == 0
+                        ? "No active gigs yet"
+                        : "\(viewModel.activeCount) active gig\(viewModel.activeCount == 1 ? "" : "s")",
+                    icon: "checkmark.circle.fill"
+                ) {
+                    path.append(AppDestination.currentGigs)
+                }
 
                 DashboardCardView(
                     title: "Browse Gigs",
