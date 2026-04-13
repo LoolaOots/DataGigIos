@@ -2,8 +2,11 @@ import SwiftUI
 
 struct GigRecordingsLibraryView: View {
     let detail: ApplicationDetail
+    let accessToken: String
     @State private var viewModel: GigRecordingsLibraryViewModel
-    @State private var showUploadAlert = false
+    @State private var submissionService = SubmissionService()
+    @State private var showUploadError = false
+    @State private var uploadErrorMessage = ""
     @State private var permissionsManager = PermissionsManager()
     @State private var showCollection = false
     @State private var showPermissionsDenied = false
@@ -11,8 +14,9 @@ struct GigRecordingsLibraryView: View {
     @State private var recordingToDelete: GigRecordingSession? = nil
     @State private var showDeleteSelectedConfirmation = false
 
-    init(detail: ApplicationDetail) {
+    init(detail: ApplicationDetail, accessToken: String) {
         self.detail = detail
+        self.accessToken = accessToken
         _viewModel = State(wrappedValue: GigRecordingsLibraryViewModel(
             assignmentCode: detail.assignmentCode ?? "",
             gigTitle: detail.gigDetail.title,
@@ -31,7 +35,10 @@ struct GigRecordingsLibraryView: View {
             } else {
                 SessionListView(
                     viewModel: viewModel,
-                    showUploadAlert: $showUploadAlert,
+                    submissionService: submissionService,
+                    accessToken: accessToken,
+                    showUploadError: $showUploadError,
+                    uploadErrorMessage: $uploadErrorMessage,
                     showDeleteConfirmation: $showDeleteConfirmation,
                     recordingToDelete: $recordingToDelete
                 )
@@ -45,14 +52,17 @@ struct GigRecordingsLibraryView: View {
             if viewModel.isSelectMode {
                 BottomBarView(
                     viewModel: viewModel,
-                    showUploadAlert: $showUploadAlert,
+                    submissionService: submissionService,
+                    accessToken: accessToken,
+                    showUploadError: $showUploadError,
+                    uploadErrorMessage: $uploadErrorMessage,
                     showDeleteSelectedConfirmation: $showDeleteSelectedConfirmation
                 )
             }
         }
         .onAppear { viewModel.load() }
         .navigationDestination(isPresented: $showCollection) {
-            GigCollectionView(viewModel: GigCollectionViewModel(detail: detail))
+            GigCollectionView(viewModel: GigCollectionViewModel(detail: detail), accessToken: accessToken)
         }
         .navigationDestination(isPresented: $showPermissionsDenied) {
             PermissionsDeniedView(
@@ -63,10 +73,10 @@ struct GigRecordingsLibraryView: View {
                 onBack: { showPermissionsDenied = false }
             )
         }
-        .alert("Upload Coming Soon", isPresented: $showUploadAlert) {
+        .alert("Upload Error", isPresented: $showUploadError) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Uploading recordings will be available in a future update.")
+            Text(uploadErrorMessage)
         }
         .alert("Delete Recording?", isPresented: $showDeleteConfirmation) {
             Button("Delete", role: .destructive) {
@@ -149,7 +159,10 @@ private struct EmptyStateView: View {
 
 private struct SessionListView: View {
     @Bindable var viewModel: GigRecordingsLibraryViewModel
-    @Binding var showUploadAlert: Bool
+    @Bindable var submissionService: SubmissionService
+    let accessToken: String
+    @Binding var showUploadError: Bool
+    @Binding var uploadErrorMessage: String
     @Binding var showDeleteConfirmation: Bool
     @Binding var recordingToDelete: GigRecordingSession?
 
@@ -169,11 +182,19 @@ private struct SessionListView: View {
                         }
                         .swipeActions(edge: .leading, allowsFullSwipe: false) {
                             Button {
-                                showUploadAlert = true
+                                Task {
+                                    do {
+                                        try await submissionService.submit(session: session, accessToken: accessToken)
+                                    } catch {
+                                        uploadErrorMessage = error.localizedDescription
+                                        showUploadError = true
+                                    }
+                                }
                             } label: {
                                 Label("Submit", systemImage: "arrow.up.circle")
                             }
                             .tint(.blue)
+                            .disabled(submissionService.isSubmitting || submissionService.submittedSessionIds.contains(session.id))
                         }
                 }
             }
@@ -285,7 +306,10 @@ private struct SelectCircleView: View {
 
 private struct BottomBarView: View {
     @Bindable var viewModel: GigRecordingsLibraryViewModel
-    @Binding var showUploadAlert: Bool
+    @Bindable var submissionService: SubmissionService
+    let accessToken: String
+    @Binding var showUploadError: Bool
+    @Binding var uploadErrorMessage: String
     @Binding var showDeleteSelectedConfirmation: Bool
 
     var body: some View {
@@ -299,10 +323,22 @@ private struct BottomBarView: View {
             Spacer()
 
             Button("Submit (\(viewModel.selectedIDs.count))", systemImage: "arrow.up.circle") {
-                showUploadAlert = true
+                let selectedSessions = viewModel.sessions.filter { viewModel.selectedIDs.contains($0.id) }
+                Task {
+                    for session in selectedSessions {
+                        guard !submissionService.submittedSessionIds.contains(session.id) else { continue }
+                        do {
+                            try await submissionService.submit(session: session, accessToken: accessToken)
+                        } catch {
+                            uploadErrorMessage = error.localizedDescription
+                            showUploadError = true
+                            break
+                        }
+                    }
+                }
             }
             .font(.subheadline).bold()
-            .disabled(viewModel.selectedIDs.isEmpty)
+            .disabled(viewModel.selectedIDs.isEmpty || submissionService.isSubmitting)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 14)

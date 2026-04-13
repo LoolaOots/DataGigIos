@@ -46,6 +46,23 @@ enum Config {
     }
 }
 
+// MARK: - Submission Models
+
+struct UploadUrlResponse: Decodable {
+    let signedUrl: String       // decoded from backend's signed_url
+    let storagePath: String     // decoded from backend's storage_path
+    let applicationId: String   // decoded from backend's application_id
+}
+
+struct ConfirmSubmissionResponse: Decodable {
+    let submissionId: String    // decoded from backend's submission_id
+}
+
+struct DeviceMetadata: Encodable {
+    let model: String
+    let osVersion: String       // sent as os_version via convertToSnakeCase
+}
+
 // MARK: - APIClient
 
 actor APIClient {
@@ -63,6 +80,71 @@ actor APIClient {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         decoder.dateDecodingStrategy = .iso8601
         self.decoder = decoder
+    }
+
+    func getUploadUrl(
+        assignmentCode: String,
+        gigLabelId: String,
+        deviceType: String,
+        accessToken: String
+    ) async throws -> UploadUrlResponse {
+        struct Body: Encodable {
+            let assignmentCode: String
+            let gigLabelId: String
+            let deviceType: String
+            let fileExtension: String
+        }
+        let body = Body(
+            assignmentCode: assignmentCode,
+            gigLabelId: gigLabelId,
+            deviceType: deviceType,
+            fileExtension: "csv"
+        )
+        return try await request(
+            "/submissions/upload-url",
+            method: "POST",
+            body: body,
+            auth: accessToken
+        )
+    }
+
+    func confirmSubmission(
+        applicationId: String,
+        gigLabelId: String,
+        assignmentCode: String,
+        storagePath: String,
+        fileSizeBytes: Int,
+        durationSeconds: Int,
+        deviceType: String,
+        deviceMetadata: DeviceMetadata,
+        accessToken: String
+    ) async throws -> ConfirmSubmissionResponse {
+        struct Body: Encodable {
+            let applicationId: String
+            let gigLabelId: String
+            let assignmentCode: String
+            let storagePath: String
+            let fileSizeBytes: Int
+            let durationSeconds: Int
+            let deviceType: String
+            let deviceMetadata: DeviceMetadata
+        }
+        let body = Body(
+            applicationId: applicationId,
+            gigLabelId: gigLabelId,
+            assignmentCode: assignmentCode,
+            storagePath: storagePath,
+            fileSizeBytes: fileSizeBytes,
+            durationSeconds: durationSeconds,
+            deviceType: deviceType,
+            deviceMetadata: deviceMetadata
+        )
+        return try await request(
+            "/submissions/confirm",
+            method: "POST",
+            body: body,
+            auth: accessToken
+        )
     }
 
     func request<T: Decodable>(

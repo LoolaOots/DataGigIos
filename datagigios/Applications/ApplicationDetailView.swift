@@ -28,6 +28,7 @@ struct ApplicationDetailView: View {
             } else if let detail = viewModel.selectedDetail {
                 DetailContent(
                     detail: detail,
+                    accessToken: accessToken,
                     showCollection: $showCollection,
                     showPermissionsDenied: $showPermissionsDenied,
                     checkPermissions: { permissionsManager.check(onResult: $0) }
@@ -41,7 +42,7 @@ struct ApplicationDetailView: View {
         }
         .navigationDestination(isPresented: $showCollection) {
             if let detail = viewModel.selectedDetail {
-                GigCollectionView(viewModel: GigCollectionViewModel(detail: detail))
+                GigCollectionView(viewModel: GigCollectionViewModel(detail: detail), accessToken: accessToken)
             }
         }
         .navigationDestination(isPresented: $showPermissionsDenied) {
@@ -62,6 +63,7 @@ struct ApplicationDetailView: View {
 
 private struct DetailContent: View {
     let detail: ApplicationDetail
+    let accessToken: String
     @Binding var showCollection: Bool
     @Binding var showPermissionsDenied: Bool
     let checkPermissions: (@escaping (PermissionsManager.PermissionResult) -> Void) -> Void
@@ -120,7 +122,7 @@ private struct DetailContent: View {
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
 
-                        NavigationLink(destination: GigRecordingsLibraryView(detail: detail)) {
+                        NavigationLink(destination: GigRecordingsLibraryView(detail: detail, accessToken: accessToken)) {
                             Label("View Recordings", systemImage: "list.bullet.rectangle")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
