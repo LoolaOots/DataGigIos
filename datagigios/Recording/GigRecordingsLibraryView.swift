@@ -322,7 +322,7 @@ private struct BottomBarView: View {
 
             Spacer()
 
-            Button("Submit (\(viewModel.selectedIDs.count))", systemImage: "arrow.up.circle") {
+            Button {
                 let selectedSessions = viewModel.sessions.filter { viewModel.selectedIDs.contains($0.id) }
                 Task {
                     for session in selectedSessions {
@@ -335,6 +335,13 @@ private struct BottomBarView: View {
                             break
                         }
                     }
+                }
+            } label: {
+                if submissionService.isSubmitting {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                } else {
+                    Label("Submit (\(viewModel.selectedIDs.count))", systemImage: "arrow.up.circle")
                 }
             }
             .font(.subheadline).bold()
