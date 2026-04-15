@@ -4,7 +4,7 @@ struct RecordingSummaryView: View {
     let session: GigRecordingSession
     let accessToken: String
     @Bindable var viewModel: GigCollectionViewModel
-    @State private var submissionService = SubmissionService()
+    @Environment(SubmissionService.self) private var submissionService
     @State private var submissionError: String? = nil
     @State private var showErrorAlert = false
     @State private var storageFull = false
@@ -73,6 +73,13 @@ struct RecordingSummaryView: View {
 
                 Button {
                     Task {
+                        // Persist session to disk first so it survives a crash during upload
+                        do {
+                            try GigRecordingSessionStore.save(session)
+                        } catch {
+                            storageFull = true
+                            return
+                        }
                         do {
                             try await submissionService.submit(session: session, accessToken: accessToken)
                         } catch {

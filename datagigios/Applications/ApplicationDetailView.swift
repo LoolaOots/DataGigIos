@@ -11,6 +11,7 @@ struct ApplicationDetailView: View {
 
     @State private var viewModel = ApplicationsViewModel()
     @State private var permissionsManager = PermissionsManager()
+    @State private var submissionService = SubmissionService()
     @State private var showCollection = false
     @State private var showPermissionsDenied = false
 
@@ -35,6 +36,7 @@ struct ApplicationDetailView: View {
                 )
             }
         }
+        .environment(submissionService)
         .navigationTitle(viewModel.selectedDetail?.gigTitle ?? "Application")
         .navigationBarTitleDisplayMode(.inline)
         .task {

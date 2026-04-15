@@ -4,7 +4,7 @@ struct GigRecordingsLibraryView: View {
     let detail: ApplicationDetail
     let accessToken: String
     @State private var viewModel: GigRecordingsLibraryViewModel
-    @State private var submissionService = SubmissionService()
+    @Environment(SubmissionService.self) private var submissionService
     @State private var showUploadError = false
     @State private var uploadErrorMessage = ""
     @State private var permissionsManager = PermissionsManager()
@@ -325,6 +325,7 @@ private struct BottomBarView: View {
             Button {
                 let selectedSessions = viewModel.sessions.filter { viewModel.selectedIDs.contains($0.id) }
                 Task {
+                    var hadError = false
                     for session in selectedSessions {
                         guard !submissionService.submittedSessionIds.contains(session.id) else { continue }
                         do {
@@ -332,8 +333,13 @@ private struct BottomBarView: View {
                         } catch {
                             uploadErrorMessage = error.localizedDescription
                             showUploadError = true
+                            hadError = true
                             break
                         }
+                    }
+                    if !hadError {
+                        viewModel.clearSelection()
+                        viewModel.isSelectMode = false
                     }
                 }
             } label: {

@@ -64,8 +64,15 @@ struct SensorDataExporter {
         return Data(csv.utf8)
     }
 
+    private static let posixLocale = Locale(identifier: "en_US_POSIX")
+
     private static func fmt(_ value: Double?) -> String {
         guard let v = value else { return "" }
-        return String(v)
+        return v.formatted(
+            .number
+                .precision(.significantDigits(1...17))
+                .locale(posixLocale)
+                .grouping(.never)
+        )
     }
 }
