@@ -60,7 +60,7 @@ struct SensorDataExporter {
             lines.append(row)
         }
 
-        let csv = lines.joined(separator: "\n")
+        let csv = lines.joined(separator: "\r\n")
         return Data(csv.utf8)
     }
 

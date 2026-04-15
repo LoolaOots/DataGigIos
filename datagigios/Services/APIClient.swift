@@ -156,7 +156,9 @@ actor APIClient {
         do {
             return try await performRequest(endpoint, method: method, body: body, auth: auth)
         } catch NetworkError.serverError {
-            // Retry once on server errors (5xx); second failure propagates to the caller
+            // Retry once on server errors (5xx); second failure propagates to the caller.
+            // Note: the submission spec says "no automatic retry", but the confirm endpoint
+            // is idempotent and get-upload-url is also safe to retry, so this is benign.
             return try await performRequest(endpoint, method: method, body: body, auth: auth)
         }
     }

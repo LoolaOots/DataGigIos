@@ -25,6 +25,15 @@ enum SubmissionError: LocalizedError {
 final class SubmissionService {
     private let apiClient = APIClient.shared
 
+    // Dedicated session for Supabase Storage PUT — 120s timeout for large CSV uploads
+    private let uploadSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 120
+        return URLSession(configuration: config)
+    }()
+
+    private static let deviceType = "generic_ios"
+
     var isSubmitting = false
     var submittedSessionIds: Set<UUID> = []
 
@@ -39,14 +48,16 @@ final class SubmissionService {
             uploadUrlResponse = try await apiClient.getUploadUrl(
                 assignmentCode: session.assignmentCode,
                 gigLabelId: session.labelId,
-                deviceType: "generic_ios",
+                deviceType: Self.deviceType,
                 accessToken: accessToken
             )
         } catch {
+            print("[SubmissionService] Step 1 failed: \(error)")
             throw SubmissionError.uploadUrlFailed
         }
 
         // Step 2: export CSV and PUT directly to Supabase Storage
+        // Uses a dedicated URLSession with a 120-second timeout; URLSession.shared has no timeout override.
         let csvData = SensorDataExporter.export(session: session)
         do {
             guard let signedURL = URL(string: uploadUrlResponse.signedUrl) else {
@@ -55,14 +66,13 @@ final class SubmissionService {
             var putRequest = URLRequest(url: signedURL)
             putRequest.httpMethod = "PUT"
             putRequest.setValue("text/csv", forHTTPHeaderField: "Content-Type")
-            let (_, response) = try await URLSession.shared.upload(for: putRequest, from: csvData)
+            let (_, response) = try await uploadSession.upload(for: putRequest, from: csvData)
             guard let httpResponse = response as? HTTPURLResponse,
                   (200...299).contains(httpResponse.statusCode) else {
                 throw SubmissionError.csvUploadFailed
             }
-        } catch is SubmissionError {
-            throw SubmissionError.csvUploadFailed
         } catch {
+            print("[SubmissionService] Step 2 failed: \(error)")
             throw SubmissionError.csvUploadFailed
         }
 
@@ -81,11 +91,12 @@ final class SubmissionService {
                 storagePath: uploadUrlResponse.storagePath,
                 fileSizeBytes: csvData.count,
                 durationSeconds: session.intendedDurationSeconds,
-                deviceType: "generic_ios",
+                deviceType: Self.deviceType,
                 deviceMetadata: metadata,
                 accessToken: accessToken
             )
         } catch {
+            print("[SubmissionService] Step 3 failed: \(error)")
             throw SubmissionError.confirmFailed
         }
 
