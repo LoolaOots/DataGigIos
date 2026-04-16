@@ -184,7 +184,7 @@ private struct SessionListView: View {
                             Button {
                                 Task {
                                     do {
-                                        try await submissionService.submit(session: session, accessToken: accessToken)
+                                        try await submissionService.submit(session: session, assignmentCode: viewModel.assignmentCode, accessToken: accessToken)
                                     } catch {
                                         uploadErrorMessage = error.localizedDescription
                                         showUploadError = true
@@ -329,7 +329,7 @@ private struct BottomBarView: View {
                     for session in selectedSessions {
                         guard !submissionService.submittedSessionIds.contains(session.id) else { continue }
                         do {
-                            try await submissionService.submit(session: session, accessToken: accessToken)
+                            try await submissionService.submit(session: session, assignmentCode: viewModel.assignmentCode, accessToken: accessToken)
                         } catch {
                             uploadErrorMessage = error.localizedDescription
                             showUploadError = true

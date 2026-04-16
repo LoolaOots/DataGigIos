@@ -21,6 +21,7 @@ enum AppDestination: Hashable {
 struct DashboardView: View {
     @Environment(AuthRouter.self) private var authRouter
     @State private var viewModel = DashboardViewModel()
+    @State private var submissionService = SubmissionService()
     @State private var path = NavigationPath()
     @State private var showSignOutConfirmation = false
     @State private var signOutConfirmed = false
@@ -105,6 +106,7 @@ struct DashboardView: View {
             }
             .sensoryFeedback(.impact, trigger: signOutConfirmed)
         }
+        .environment(submissionService)
     }
 }
 

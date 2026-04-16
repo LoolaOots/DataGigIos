@@ -11,7 +11,7 @@ enum SubmissionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .uploadUrlFailed:
-            return "Unable to start upload. Check your connection and try again."
+            return "Unable to start upload. Please try again later."
         case .csvUploadFailed:
             return "Upload failed. Please try again."
         case .confirmFailed:
@@ -37,7 +37,7 @@ final class SubmissionService {
     var isSubmitting = false
     var submittedSessionIds: Set<UUID> = []
 
-    func submit(session: GigRecordingSession, accessToken: String) async throws {
+    func submit(session: GigRecordingSession, assignmentCode: String, accessToken: String) async throws {
         isSubmitting = true
         defer { isSubmitting = false }
 
@@ -46,7 +46,7 @@ final class SubmissionService {
         let uploadUrlResponse: UploadUrlResponse
         do {
             uploadUrlResponse = try await apiClient.getUploadUrl(
-                assignmentCode: session.assignmentCode,
+                assignmentCode: assignmentCode,
                 gigLabelId: session.labelId,
                 deviceType: Self.deviceType,
                 accessToken: accessToken
@@ -87,7 +87,7 @@ final class SubmissionService {
             _ = try await apiClient.confirmSubmission(
                 applicationId: uploadUrlResponse.applicationId,
                 gigLabelId: session.labelId,
-                assignmentCode: session.assignmentCode,
+                assignmentCode: assignmentCode,
                 storagePath: uploadUrlResponse.storagePath,
                 fileSizeBytes: csvData.count,
                 durationSeconds: session.intendedDurationSeconds,

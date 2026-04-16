@@ -11,9 +11,9 @@ struct ApplicationDetailView: View {
 
     @State private var viewModel = ApplicationsViewModel()
     @State private var permissionsManager = PermissionsManager()
-    @State private var submissionService = SubmissionService()
     @State private var showCollection = false
     @State private var showPermissionsDenied = false
+    @State private var showRecordings = false
 
     var body: some View {
         Group {
@@ -32,11 +32,11 @@ struct ApplicationDetailView: View {
                     accessToken: accessToken,
                     showCollection: $showCollection,
                     showPermissionsDenied: $showPermissionsDenied,
+                    showRecordings: $showRecordings,
                     checkPermissions: { permissionsManager.check(onResult: $0) }
                 )
             }
         }
-        .environment(submissionService)
         .navigationTitle(viewModel.selectedDetail?.gigTitle ?? "Application")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -58,6 +58,11 @@ struct ApplicationDetailView: View {
                 }
             )
         }
+        .navigationDestination(isPresented: $showRecordings) {
+            if let detail = viewModel.selectedDetail {
+                GigRecordingsLibraryView(detail: detail, accessToken: accessToken)
+            }
+        }
     }
 }
 
@@ -68,6 +73,7 @@ private struct DetailContent: View {
     let accessToken: String
     @Binding var showCollection: Bool
     @Binding var showPermissionsDenied: Bool
+    @Binding var showRecordings: Bool
     let checkPermissions: (@escaping (PermissionsManager.PermissionResult) -> Void) -> Void
 
     var body: some View {
@@ -124,7 +130,9 @@ private struct DetailContent: View {
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
 
-                        NavigationLink(destination: GigRecordingsLibraryView(detail: detail, accessToken: accessToken)) {
+                        Button {
+                            showRecordings = true
+                        } label: {
                             Label("View Recordings", systemImage: "list.bullet.rectangle")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)

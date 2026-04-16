@@ -81,7 +81,7 @@ struct RecordingSummaryView: View {
                             return
                         }
                         do {
-                            try await submissionService.submit(session: session, accessToken: accessToken)
+                            try await submissionService.submit(session: session, assignmentCode: viewModel.detail.assignmentCode ?? "", accessToken: accessToken)
                         } catch {
                             submissionError = error.localizedDescription
                             showErrorAlert = true
