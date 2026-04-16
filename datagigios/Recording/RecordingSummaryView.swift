@@ -2,8 +2,11 @@ import SwiftUI
 
 struct RecordingSummaryView: View {
     let session: GigRecordingSession
+    let accessToken: String
     @Bindable var viewModel: GigCollectionViewModel
-    @State private var showUploadAlert = false
+    @Environment(SubmissionService.self) private var submissionService
+    @State private var submissionError: String? = nil
+    @State private var showErrorAlert = false
     @State private var storageFull = false
     @State private var showDiscardConfirmation = false
 
@@ -69,22 +72,42 @@ struct RecordingSummaryView: View {
                 Spacer()
 
                 Button {
-                    showUploadAlert = true
+                    Task {
+                        // Persist session to disk first so it survives a crash during upload
+                        do {
+                            try GigRecordingSessionStore.save(session)
+                        } catch {
+                            storageFull = true
+                            return
+                        }
+                        do {
+                            try await submissionService.submit(session: session, assignmentCode: viewModel.detail.assignmentCode ?? "", accessToken: accessToken)
+                        } catch {
+                            submissionError = error.localizedDescription
+                            showErrorAlert = true
+                        }
+                    }
                 } label: {
-                    Label("Submit", systemImage: "arrow.up.circle")
-                        .font(.subheadline).bold()
+                    if submissionService.isSubmitting {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                    } else {
+                        Label("Submit", systemImage: "arrow.up.circle")
+                            .font(.subheadline).bold()
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .disabled(submissionService.isSubmitting || submissionService.submittedSessionIds.contains(session.id))
+                .alert("Upload Error", isPresented: $showErrorAlert) {
+                    Button("OK", role: .cancel) { }
+                } message: {
+                    Text(submissionError ?? "An unknown error occurred.")
+                }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
             .background(Color.black)
-        }
-        .alert("Upload Coming Soon", isPresented: $showUploadAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Uploading recordings will be available in a future update.")
         }
         .alert("Storage Full", isPresented: $storageFull) {
             Button("OK", role: .cancel) {}

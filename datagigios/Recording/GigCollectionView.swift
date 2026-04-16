@@ -2,6 +2,7 @@ import SwiftUI
 
 struct GigCollectionView: View {
     @Bindable var viewModel: GigCollectionViewModel
+    let accessToken: String
     @State private var showBeginSheet = false
     @State private var pendingStart = false
 
@@ -33,7 +34,7 @@ struct GigCollectionView: View {
             get: { viewModel.recordingPhase != nil },
             set: { if !$0 { viewModel.recordingPhase = nil } }
         )) {
-            RecordingCoordinatorView(viewModel: viewModel)
+            RecordingCoordinatorView(viewModel: viewModel, accessToken: accessToken)
         }
     }
 }
@@ -200,12 +201,13 @@ private struct BeginSheetView: View {
 
 private struct RecordingCoordinatorView: View {
     @Bindable var viewModel: GigCollectionViewModel
+    let accessToken: String
     @Environment(\.scenePhase) private var scenePhase
     @State private var recordingStarted = false
     @State private var recordingStopped = false
 
     var body: some View {
-        RecordingPhaseView(viewModel: viewModel)
+        RecordingPhaseView(viewModel: viewModel, accessToken: accessToken)
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .background else { return }
                 switch viewModel.recordingPhase {
@@ -228,6 +230,7 @@ private struct RecordingCoordinatorView: View {
 
 private struct RecordingPhaseView: View {
     @Bindable var viewModel: GigCollectionViewModel
+    let accessToken: String
 
     var body: some View {
         ZStack {
@@ -238,7 +241,7 @@ private struct RecordingPhaseView: View {
             case .recording:
                 LabelRecordingView(viewModel: viewModel)
             case .summary(let session):
-                RecordingSummaryView(session: session, viewModel: viewModel)
+                RecordingSummaryView(session: session, accessToken: accessToken, viewModel: viewModel)
             case nil:
                 EmptyView()
             }
