@@ -77,6 +77,7 @@ struct GigRecordingsLibraryView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(uploadErrorMessage)
+                .multilineTextAlignment(.center)
         }
         .alert("Delete Recording?", isPresented: $showDeleteConfirmation) {
             Button("Delete", role: .destructive) {
@@ -228,6 +229,7 @@ private struct SessionRowView: View {
 private struct SessionRowBodyView: View {
     @Bindable var viewModel: GigRecordingsLibraryViewModel
     let session: GigRecordingSession
+    @Environment(SubmissionService.self) private var submissionService
 
     var body: some View {
         HStack(spacing: 10) {
@@ -248,7 +250,11 @@ private struct SessionRowBodyView: View {
 
             Spacer()
 
-            if !viewModel.isSelectMode {
+            if submissionService.submittedSessionIds.contains(session.id) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .accessibilityLabel("Submitted")
+            } else if !viewModel.isSelectMode {
                 Image(systemName: "chevron.right")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)

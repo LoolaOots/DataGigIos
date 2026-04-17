@@ -39,9 +39,10 @@ struct DashboardView: View {
                         Text("Please try again later.")
                     } actions: {
                         Button("Retry") {
-                            if let token = authRouter.session?.accessToken {
-                                Task { await viewModel.load(accessToken: token) }
-                            }
+                            guard let token = authRouter.session?.accessToken else { return }
+                            viewModel.isLoading = true
+                            viewModel.error = nil
+                            Task { await viewModel.load(accessToken: token) }
                         }
                         .buttonStyle(.borderedProminent)
                     }

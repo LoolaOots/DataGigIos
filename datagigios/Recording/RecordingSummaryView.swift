@@ -91,6 +91,9 @@ struct RecordingSummaryView: View {
                     if submissionService.isSubmitting {
                         ProgressView()
                             .progressViewStyle(.circular)
+                    } else if submissionService.submittedSessionIds.contains(session.id) {
+                        Label("Submitted", systemImage: "checkmark.circle.fill")
+                            .font(.subheadline).bold()
                     } else {
                         Label("Submit", systemImage: "arrow.up.circle")
                             .font(.subheadline).bold()
@@ -103,6 +106,7 @@ struct RecordingSummaryView: View {
                     Button("OK", role: .cancel) { }
                 } message: {
                     Text(submissionError ?? "An unknown error occurred.")
+                        .multilineTextAlignment(.center)
                 }
             }
             .padding(.horizontal, 24)
