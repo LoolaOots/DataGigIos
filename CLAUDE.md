@@ -269,21 +269,28 @@ All submission calls require `Authorization: Bearer {access_token}` header.
 #### Step 1 — Get Signed Upload URL
 ```
 POST /submissions/upload-url
-Body: { "assignmentCode": "ABC123DEF456", "gigLabelId": "uuid", "deviceType": "generic_ios", "fileExtension": "csv" }
-Response: { "signedUrl": "https://...", "token": "...", "storagePath": "submissions/...", "applicationId": "uuid" }
+Body:     { "assignmentCode": "ABC123DEF456", "gigLabelId": "uuid", "deviceType": "generic_ios", "fileExtension": "csv" }
+Response: { "signedUrl": "https://…supabase.co/storage/v1/…", "storagePath": "submissions/…", "applicationId": "uuid" }
 ```
+- `APIClient` encodes body keys as snake_case (`convertToSnakeCase`) and decodes response keys from snake_case (`convertFromSnakeCase`).
+- A `submissions` row is created with status `pending` in the DB.
+- `UploadUrlResponse` struct: `signedUrl`, `storagePath`, `applicationId`.
 
 #### Step 2 — Upload File
-PUT sensor CSV directly to `signedUrl` (Supabase Storage — this is the only direct Supabase call, via the signed URL).
+PUT the CSV data directly to `signedUrl` using a dedicated `URLSession` with a 120-second timeout.
+Content-Type: `text/csv`. This is the **only** direct Supabase call — everything else goes through the backend.
 
 #### Step 3 — Confirm Submission
 ```
 POST /submissions/confirm
-Body: { "applicationId": "uuid", "gigLabelId": "uuid", "assignmentCode": "ABC123DEF456",
-        "storagePath": "submissions/...", "fileSizeBytes": 12345, "durationSeconds": 120,
-        "deviceType": "generic_ios", "deviceMetadata": { "model": "iPhone 16", "osVersion": "26.0" } }
+Body:     { "applicationId": "uuid", "gigLabelId": "uuid", "assignmentCode": "ABC123DEF456",
+            "storagePath": "submissions/…", "fileSizeBytes": 12345, "durationSeconds": 120,
+            "deviceType": "generic_ios", "deviceMetadata": { "model": "iPhone 16", "osVersion": "26.0" } }
 Response: { "submissionId": "uuid" }
 ```
+- Backend marks the submission `uploaded` and stores file size, duration, device metadata.
+- This call is **idempotent** — safe to retry if the app is backgrounded mid-submit.
+- `ConfirmSubmissionResponse` struct: `submissionId`.
 
 ---
 
