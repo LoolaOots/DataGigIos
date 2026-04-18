@@ -7,6 +7,8 @@ struct GigRecordingsLibraryView: View {
     @Environment(SubmissionService.self) private var submissionService
     @State private var showUploadError = false
     @State private var uploadErrorMessage = ""
+    @State private var showSuccessAlert = false
+    @State private var showAlreadySubmittedAlert = false
     @State private var permissionsManager = PermissionsManager()
     @State private var showCollection = false
     @State private var showPermissionsDenied = false
@@ -39,6 +41,8 @@ struct GigRecordingsLibraryView: View {
                     accessToken: accessToken,
                     showUploadError: $showUploadError,
                     uploadErrorMessage: $uploadErrorMessage,
+                    showSuccessAlert: $showSuccessAlert,
+                    showAlreadySubmittedAlert: $showAlreadySubmittedAlert,
                     showDeleteConfirmation: $showDeleteConfirmation,
                     recordingToDelete: $recordingToDelete
                 )
@@ -56,6 +60,8 @@ struct GigRecordingsLibraryView: View {
                     accessToken: accessToken,
                     showUploadError: $showUploadError,
                     uploadErrorMessage: $uploadErrorMessage,
+                    showSuccessAlert: $showSuccessAlert,
+                    showAlreadySubmittedAlert: $showAlreadySubmittedAlert,
                     showDeleteSelectedConfirmation: $showDeleteSelectedConfirmation
                 )
             }
@@ -99,6 +105,16 @@ struct GigRecordingsLibraryView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This action cannot be undone.")
+        }
+        .alert("Already Submitted", isPresented: $showAlreadySubmittedAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("These recordings have already been submitted.")
+        }
+        .alert("Submitted Successfully", isPresented: $showSuccessAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your recordings were submitted successfully.")
         }
     }
 
@@ -164,6 +180,8 @@ private struct SessionListView: View {
     let accessToken: String
     @Binding var showUploadError: Bool
     @Binding var uploadErrorMessage: String
+    @Binding var showSuccessAlert: Bool
+    @Binding var showAlreadySubmittedAlert: Bool
     @Binding var showDeleteConfirmation: Bool
     @Binding var recordingToDelete: GigRecordingSession?
 
@@ -186,6 +204,7 @@ private struct SessionListView: View {
                                 Task {
                                     do {
                                         try await submissionService.submit(session: session, assignmentCode: viewModel.assignmentCode, accessToken: accessToken)
+                                        showSuccessAlert = true
                                     } catch {
                                         uploadErrorMessage = error.localizedDescription
                                         showUploadError = true
@@ -250,7 +269,11 @@ private struct SessionRowBodyView: View {
 
             Spacer()
 
-            if submissionService.submittedSessionIds.contains(session.id) {
+            if submissionService.submittingSessionId == session.id {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .accessibilityLabel("Uploading")
+            } else if submissionService.submittedSessionIds.contains(session.id) {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .accessibilityLabel("Submitted")
@@ -316,6 +339,8 @@ private struct BottomBarView: View {
     let accessToken: String
     @Binding var showUploadError: Bool
     @Binding var uploadErrorMessage: String
+    @Binding var showSuccessAlert: Bool
+    @Binding var showAlreadySubmittedAlert: Bool
     @Binding var showDeleteSelectedConfirmation: Bool
 
     var body: some View {
@@ -330,20 +355,27 @@ private struct BottomBarView: View {
 
             Button {
                 let selectedSessions = viewModel.sessions.filter { viewModel.selectedIDs.contains($0.id) }
+                let toSubmit = selectedSessions.filter { !submissionService.submittedSessionIds.contains($0.id) }
+
+                guard !toSubmit.isEmpty else {
+                    showAlreadySubmittedAlert = true
+                    return
+                }
+
                 Task {
-                    var hadError = false
-                    for session in selectedSessions {
-                        guard !submissionService.submittedSessionIds.contains(session.id) else { continue }
+                    var uploadedCount = 0
+                    for session in toSubmit {
                         do {
                             try await submissionService.submit(session: session, assignmentCode: viewModel.assignmentCode, accessToken: accessToken)
+                            uploadedCount += 1
                         } catch {
                             uploadErrorMessage = error.localizedDescription
                             showUploadError = true
-                            hadError = true
                             break
                         }
                     }
-                    if !hadError {
+                    if uploadedCount > 0 {
+                        showSuccessAlert = true
                         viewModel.clearSelection()
                         viewModel.isSelectMode = false
                     }

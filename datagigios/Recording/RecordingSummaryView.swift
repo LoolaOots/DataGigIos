@@ -7,6 +7,7 @@ struct RecordingSummaryView: View {
     @Environment(SubmissionService.self) private var submissionService
     @State private var submissionError: String? = nil
     @State private var showErrorAlert = false
+    @State private var showSuccessAlert = false
     @State private var storageFull = false
     @State private var showDiscardConfirmation = false
 
@@ -82,6 +83,7 @@ struct RecordingSummaryView: View {
                         }
                         do {
                             try await submissionService.submit(session: session, assignmentCode: viewModel.detail.assignmentCode ?? "", accessToken: accessToken)
+                            showSuccessAlert = true
                         } catch {
                             submissionError = error.localizedDescription
                             showErrorAlert = true
@@ -112,6 +114,11 @@ struct RecordingSummaryView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
             .background(Color.black)
+        }
+        .alert("Submitted Successfully", isPresented: $showSuccessAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your recording was submitted successfully.")
         }
         .alert("Storage Full", isPresented: $storageFull) {
             Button("OK", role: .cancel) {}
