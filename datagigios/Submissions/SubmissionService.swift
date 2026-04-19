@@ -107,9 +107,15 @@ final class SubmissionService {
 
         submittedSessionIds.insert(session.id)
 
-        // Persist submitted state so the checkmark survives app restarts
+        // Persist submitted state so the checkmark survives app restarts.
+        // If this write fails (e.g. storage full), the checkmark will disappear after the
+        // next app launch — log the error so it's visible in crash reports.
         var updated = session
         updated.isSubmitted = true
-        try? GigRecordingSessionStore.save(updated)
+        do {
+            try GigRecordingSessionStore.save(updated)
+        } catch {
+            print("[SubmissionService] Failed to persist submitted state: \(error)")
+        }
     }
 }

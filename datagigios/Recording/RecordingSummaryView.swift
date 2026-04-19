@@ -86,6 +86,11 @@ struct RecordingSummaryView: View {
                             return
                         }
                         do {
+                            // NOTE: if submit throws .confirmFailed (Step 3), retrying will call
+                            // Step 1 (getUploadUrl) again, which creates a new `submissions` pending
+                            // row. Step 3 (confirmSubmission) is idempotent per the backend contract,
+                            // but Step 1 is not — a retry creates a second pending row. This is
+                            // acceptable for now; the backend can clean up orphaned pending rows.
                             try await submissionService.submit(session: session, assignmentCode: viewModel.detail.assignmentCode ?? "", accessToken: accessToken)
                             showSuccessAlert = true
                         } catch {
@@ -112,7 +117,6 @@ struct RecordingSummaryView: View {
                     Button("OK", role: .cancel) { }
                 } message: {
                     Text(submissionError ?? "An unknown error occurred.")
-                        .multilineTextAlignment(.center)
                 }
             }
             .padding(.horizontal, 24)

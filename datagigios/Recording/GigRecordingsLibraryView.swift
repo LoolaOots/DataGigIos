@@ -67,6 +67,8 @@ struct GigRecordingsLibraryView: View {
             }
         }
         .onAppear {
+            // load() is synchronous — sessions is populated before the seeding loop runs.
+            // Keep these two lines adjacent; if load() ever becomes async, seeding must await it.
             viewModel.load()
             for session in viewModel.sessions where session.isSubmitted {
                 submissionService.submittedSessionIds.insert(session.id)
@@ -88,7 +90,6 @@ struct GigRecordingsLibraryView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(uploadErrorMessage)
-                .multilineTextAlignment(.center)
         }
         .alert("Delete Recording?", isPresented: $showDeleteConfirmation) {
             Button("Delete", role: .destructive) {
@@ -206,7 +207,8 @@ private struct SessionListView: View {
                         }
                         .swipeActions(edge: .leading, allowsFullSwipe: false) {
                             Button {
-                                Task {
+                                guard !submissionService.submittedSessionIds.contains(session.id) else { return }
+                                Task { @MainActor in
                                     do {
                                         try await submissionService.submit(session: session, assignmentCode: viewModel.assignmentCode, accessToken: accessToken)
                                         showSuccessAlert = true
@@ -367,7 +369,7 @@ private struct BottomBarView: View {
                     return
                 }
 
-                Task {
+                Task { @MainActor in
                     var uploadedCount = 0
                     for session in toSubmit {
                         do {
@@ -379,7 +381,10 @@ private struct BottomBarView: View {
                             break
                         }
                     }
-                    if uploadedCount > 0 {
+                    // Only show success and clear selection if every selected recording uploaded.
+                    // On partial failure the error alert fires above; leave selection intact so
+                    // the user can see which recording failed and retry.
+                    if uploadedCount == toSubmit.count {
                         showSuccessAlert = true
                         viewModel.clearSelection()
                         viewModel.isSelectMode = false

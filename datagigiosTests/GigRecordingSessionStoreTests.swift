@@ -13,6 +13,7 @@ final class GigRecordingSessionStoreTests: XCTestCase {
             labelName: "Walking",
             assignmentCode: assignmentCode,
             startTime: Date(),
+            endTime: Date(),
             intendedDurationSeconds: 120,
             frames: []
         )
@@ -45,5 +46,23 @@ final class GigRecordingSessionStoreTests: XCTestCase {
         try GigRecordingSessionStore.delete(id: session.id, assignmentCode: session.assignmentCode, labelId: session.labelId)
         let loaded = GigRecordingSessionStore.loadAll(assignmentCode: session.assignmentCode, labelId: session.labelId)
         XCTAssertFalse(loaded.contains { $0.id == session.id })
+    }
+
+    func testIsSubmittedRoundTrips() throws {
+        // Verify that isSubmitted persists correctly through save/load.
+        // This guards against the checkmark-disappearing-after-restart bug.
+        var session = makeSession()
+        XCTAssertFalse(session.isSubmitted, "default should be false")
+        try GigRecordingSessionStore.save(session)
+
+        // Mark submitted and overwrite the saved file
+        session.isSubmitted = true
+        try GigRecordingSessionStore.save(session)
+
+        let loaded = GigRecordingSessionStore.loadAll(assignmentCode: session.assignmentCode, labelId: session.labelId)
+        let found = try XCTUnwrap(loaded.first { $0.id == session.id })
+        XCTAssertTrue(found.isSubmitted, "isSubmitted should survive a save/load round-trip")
+
+        try GigRecordingSessionStore.delete(id: session.id, assignmentCode: session.assignmentCode, labelId: session.labelId)
     }
 }
