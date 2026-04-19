@@ -106,5 +106,10 @@ final class SubmissionService {
         }
 
         submittedSessionIds.insert(session.id)
+
+        // Persist submitted state so the checkmark survives app restarts
+        var updated = session
+        updated.isSubmitted = true
+        try? GigRecordingSessionStore.save(updated)
     }
 }

@@ -66,7 +66,12 @@ struct GigRecordingsLibraryView: View {
                 )
             }
         }
-        .onAppear { viewModel.load() }
+        .onAppear {
+            viewModel.load()
+            for session in viewModel.sessions where session.isSubmitted {
+                submissionService.submittedSessionIds.insert(session.id)
+            }
+        }
         .navigationDestination(isPresented: $showCollection) {
             GigCollectionView(viewModel: GigCollectionViewModel(detail: detail), accessToken: accessToken)
         }
