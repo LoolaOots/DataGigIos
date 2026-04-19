@@ -82,10 +82,15 @@ final class SensorManager: NSObject {
             }
         }
 
-        // Frame capture timer
-        recordingTimer = Timer.scheduledTimer(withTimeInterval: sampleRate.interval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.captureFrame()
+        // Delay frame capture by 1 second to allow async sensors (altimeter, location) to
+        // deliver their first readings before we start recording frames.
+        let interval = sampleRate.interval
+        Task { @MainActor [weak self] in
+            guard let self, self.isRecording else { return }
+            try? await Task.sleep(for: .seconds(1))
+            guard self.isRecording else { return }
+            self.recordingTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.captureFrame() }
             }
         }
     }

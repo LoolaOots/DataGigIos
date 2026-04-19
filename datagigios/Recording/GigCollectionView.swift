@@ -246,5 +246,6 @@ private struct RecordingPhaseView: View {
                 EmptyView()
             }
         }
+        .transaction { $0.animation = nil }
     }
 }

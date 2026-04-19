@@ -82,12 +82,9 @@ private struct DetailContent: View {
                 // Status banner
                 StatusBannerView(status: detail.status)
 
-                // Assignment code card
-                if let code = detail.assignmentCode {
-                    AssignmentCodeCard(
-                        code: code,
-                        dataDeadline: detail.gigDetail.dataDeadline
-                    )
+                // Data deadline card
+                if let deadline = detail.gigDetail.dataDeadline {
+                    DataDeadlineCard(deadline: deadline)
                 }
 
                 Divider()
@@ -212,38 +209,26 @@ private struct StatusBannerView: View {
     }
 }
 
-// MARK: - AssignmentCodeCard
+// MARK: - DataDeadlineCard
 
-private struct AssignmentCodeCard: View {
-    let code: String
-    let dataDeadline: Date?
+private struct DataDeadlineCard: View {
+    let deadline: Date
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Assignment Code")
-                .font(.headline)
+        HStack(spacing: 12) {
+            Image(systemName: "calendar.badge.clock")
+                .font(.title2)
+                .foregroundStyle(.orange)
 
-            Text(code)
-                .font(.system(.largeTitle, design: .monospaced))
-                .bold()
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical)
-
-            Text("Use this code when submitting recordings")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .center)
-
-            if let deadline = dataDeadline {
-                Divider()
-                HStack {
-                    Image(systemName: "calendar.badge.clock")
-                        .foregroundStyle(.orange)
-                    Text("Data deadline: \(deadline.formatted(date: .long, time: .omitted))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Data Deadline")
+                    .font(.headline)
+                Text(deadline.formatted(date: .long, time: .omitted))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
+
+            Spacer()
         }
         .padding()
         .background(.regularMaterial, in: .rect(cornerRadius: 16))

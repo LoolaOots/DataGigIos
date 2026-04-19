@@ -12,4 +12,5 @@ struct GigRecordingSession: Identifiable, Codable, Equatable {
     let endTime: Date
     let intendedDurationSeconds: Int
     var frames: [SensorFrame]
+    var isSubmitted: Bool = false
 }

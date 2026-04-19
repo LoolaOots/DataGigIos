@@ -35,11 +35,16 @@ final class SubmissionService {
     private static let deviceType = "generic_ios"
 
     var isSubmitting = false
+    var submittingSessionId: UUID? = nil
     var submittedSessionIds: Set<UUID> = []
 
     func submit(session: GigRecordingSession, assignmentCode: String, accessToken: String) async throws {
         isSubmitting = true
-        defer { isSubmitting = false }
+        submittingSessionId = session.id
+        defer {
+            isSubmitting = false
+            submittingSessionId = nil
+        }
 
         // Step 1: get signed URL
         // session.labelId is the gigLabelId for API calls
@@ -101,5 +106,16 @@ final class SubmissionService {
         }
 
         submittedSessionIds.insert(session.id)
+
+        // Persist submitted state so the checkmark survives app restarts.
+        // If this write fails (e.g. storage full), the checkmark will disappear after the
+        // next app launch — log the error so it's visible in crash reports.
+        var updated = session
+        updated.isSubmitted = true
+        do {
+            try GigRecordingSessionStore.save(updated)
+        } catch {
+            print("[SubmissionService] Failed to persist submitted state: \(error)")
+        }
     }
 }

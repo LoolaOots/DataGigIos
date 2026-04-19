@@ -7,6 +7,7 @@ struct RecordingSummaryView: View {
     @Environment(SubmissionService.self) private var submissionService
     @State private var submissionError: String? = nil
     @State private var showErrorAlert = false
+    @State private var showSuccessAlert = false
     @State private var storageFull = false
     @State private var showDiscardConfirmation = false
 
@@ -17,7 +18,11 @@ struct RecordingSummaryView: View {
                 Spacer()
                 Button("Done") {
                     do {
-                        try GigRecordingSessionStore.save(session)
+                        var toSave = session
+                        if submissionService.submittedSessionIds.contains(session.id) {
+                            toSave.isSubmitted = true
+                        }
+                        try GigRecordingSessionStore.save(toSave)
                         viewModel.dismissAfterSave()
                     } catch {
                         storageFull = true
@@ -81,7 +86,13 @@ struct RecordingSummaryView: View {
                             return
                         }
                         do {
+                            // NOTE: if submit throws .confirmFailed (Step 3), retrying will call
+                            // Step 1 (getUploadUrl) again, which creates a new `submissions` pending
+                            // row. Step 3 (confirmSubmission) is idempotent per the backend contract,
+                            // but Step 1 is not — a retry creates a second pending row. This is
+                            // acceptable for now; the backend can clean up orphaned pending rows.
                             try await submissionService.submit(session: session, assignmentCode: viewModel.detail.assignmentCode ?? "", accessToken: accessToken)
+                            showSuccessAlert = true
                         } catch {
                             submissionError = error.localizedDescription
                             showErrorAlert = true
@@ -91,6 +102,9 @@ struct RecordingSummaryView: View {
                     if submissionService.isSubmitting {
                         ProgressView()
                             .progressViewStyle(.circular)
+                    } else if submissionService.submittedSessionIds.contains(session.id) {
+                        Label("Submitted", systemImage: "checkmark.circle.fill")
+                            .font(.subheadline).bold()
                     } else {
                         Label("Submit", systemImage: "arrow.up.circle")
                             .font(.subheadline).bold()
@@ -108,6 +122,11 @@ struct RecordingSummaryView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
             .background(Color.black)
+        }
+        .alert("Submitted Successfully", isPresented: $showSuccessAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your recording was submitted successfully.")
         }
         .alert("Storage Full", isPresented: $storageFull) {
             Button("OK", role: .cancel) {}
