@@ -18,7 +18,11 @@ struct RecordingSummaryView: View {
                 Spacer()
                 Button("Done") {
                     do {
-                        try GigRecordingSessionStore.save(session)
+                        var toSave = session
+                        if submissionService.submittedSessionIds.contains(session.id) {
+                            toSave.isSubmitted = true
+                        }
+                        try GigRecordingSessionStore.save(toSave)
                         viewModel.dismissAfterSave()
                     } catch {
                         storageFull = true
