@@ -26,6 +26,9 @@ final class SensorManager: NSObject {
     private var lastRelativeAltitude: Double?
     private var lastPressure: Double?
     private var lastCadence: Double?
+    private var lastMagX: Double?
+    private var lastMagY: Double?
+    private var lastMagZ: Double?
 
     // MARK: - Init
     override init() {
@@ -63,6 +66,17 @@ final class SensorManager: NSObject {
             motionManager.startDeviceMotionUpdates()
         }
 
+        // Magnetometer (separate API — CMDeviceMotion.magneticField is always 0)
+        if motionManager.isMagnetometerAvailable {
+            motionManager.magnetometerUpdateInterval = sampleRate.interval
+            motionManager.startMagnetometerUpdates(to: .main) { [weak self] data, _ in
+                guard let self, let data else { return }
+                self.lastMagX = data.magneticField.x
+                self.lastMagY = data.magneticField.y
+                self.lastMagZ = data.magneticField.z
+            }
+        }
+
         // Altimeter
         if CMAltimeter.isRelativeAltitudeAvailable() {
             altimeter.startRelativeAltitudeUpdates(to: .main) { [weak self] data, _ in
@@ -82,16 +96,9 @@ final class SensorManager: NSObject {
             }
         }
 
-        // Delay frame capture by 1 second to allow async sensors (altimeter, location) to
-        // deliver their first readings before we start recording frames.
         let interval = sampleRate.interval
-        Task { @MainActor [weak self] in
-            guard let self, self.isRecording else { return }
-            try? await Task.sleep(for: .seconds(1))
-            guard self.isRecording else { return }
-            self.recordingTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { self?.captureFrame() }
-            }
+        recordingTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.captureFrame() }
         }
     }
 
@@ -105,10 +112,14 @@ final class SensorManager: NSObject {
         recordingTimer = nil
 
         motionManager.stopDeviceMotionUpdates()
+        motionManager.stopMagnetometerUpdates()
         altimeter.stopRelativeAltitudeUpdates()
         pedometer.stopUpdates()
         locationManager.stopUpdatingLocation()
         locationManager.stopUpdatingHeading()
+        lastMagX = nil
+        lastMagY = nil
+        lastMagZ = nil
 
         let session = GigRecordingSession(
             id: UUID(),
@@ -179,9 +190,9 @@ final class SensorManager: NSObject {
             gyroX: motion.map { $0.rotationRate.x * toDegrees },
             gyroY: motion.map { $0.rotationRate.y * toDegrees },
             gyroZ: motion.map { $0.rotationRate.z * toDegrees },
-            magX: motion.map { $0.magneticField.field.x },
-            magY: motion.map { $0.magneticField.field.y },
-            magZ: motion.map { $0.magneticField.field.z },
+            magX: lastMagX,
+            magY: lastMagY,
+            magZ: lastMagZ,
             cadence: lastCadence
         )
         frames.append(frame)

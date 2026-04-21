@@ -36,7 +36,7 @@ struct SensorDataExporter {
                 fmt(frame.yaw),
                 fmt(frame.latitude),
                 fmt(frame.longitude),
-                fmt(frame.relativeAltitude),    // altitude = relativeAltitude
+                fmt(frame.absoluteAltitude),    // altitude = GPS absolute altitude (metres ASL)
                 fmt(frame.pressure),
                 fmt(frame.trueHeading),
                 fmt(frame.speed),
