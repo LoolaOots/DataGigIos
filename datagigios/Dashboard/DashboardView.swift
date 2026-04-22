@@ -42,7 +42,7 @@ struct DashboardView: View {
                             guard let token = authRouter.session?.accessToken else { return }
                             viewModel.isLoading = true
                             viewModel.error = nil
-                            Task { await viewModel.load(accessToken: token) }
+                            Task { await viewModel.load(accessToken: token, authRouter: authRouter) }
                         }
                         .buttonStyle(.borderedProminent)
                     }
@@ -88,12 +88,12 @@ struct DashboardView: View {
             }
             .task {
                 if let token = authRouter.session?.accessToken {
-                    await viewModel.load(accessToken: token)
+                    await viewModel.load(accessToken: token, authRouter: authRouter)
                 }
             }
             .refreshable {
                 if let token = authRouter.session?.accessToken {
-                    await viewModel.load(accessToken: token)
+                    await viewModel.load(accessToken: token, authRouter: authRouter)
                 }
             }
             .alert("Sign Out?", isPresented: $showSignOutConfirmation) {

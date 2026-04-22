@@ -26,6 +26,9 @@ final class SensorManager: NSObject {
     private var lastRelativeAltitude: Double?
     private var lastPressure: Double?
     private var lastCadence: Double?
+    private var lastMagX: Double?
+    private var lastMagY: Double?
+    private var lastMagZ: Double?
 
     // MARK: - Init
     override init() {
@@ -63,6 +66,17 @@ final class SensorManager: NSObject {
             motionManager.startDeviceMotionUpdates()
         }
 
+        // Magnetometer (separate API — CMDeviceMotion.magneticField is always 0)
+        if motionManager.isMagnetometerAvailable {
+            motionManager.magnetometerUpdateInterval = sampleRate.interval
+            motionManager.startMagnetometerUpdates(to: .main) { [weak self] data, _ in
+                guard let self, let data else { return }
+                self.lastMagX = data.magneticField.x
+                self.lastMagY = data.magneticField.y
+                self.lastMagZ = data.magneticField.z
+            }
+        }
+
         // Altimeter
         if CMAltimeter.isRelativeAltitudeAvailable() {
             altimeter.startRelativeAltitudeUpdates(to: .main) { [weak self] data, _ in
@@ -72,23 +86,47 @@ final class SensorManager: NSObject {
             }
         }
 
-        // Pedometer cadence
+        // Pedometer cadence — computed from step deltas because currentCadence
+        // requires CoreMotion activity classification (often nil even when
+        // steps are being counted).
         if CMPedometer.isCadenceAvailable() {
-            pedometer.startUpdates(from: Date()) { [weak self] data, _ in
-                guard let self, let data, let cadence = data.currentCadence else { return }
-                Task { @MainActor in
-                    self.lastCadence = cadence.doubleValue
+            let authStatus = CMPedometer.authorizationStatus()
+            if authStatus != .authorized {
+                print("[SensorManager] CMPedometer auth denied/restricted: \(authStatus.rawValue)")
+            } else {
+                var lastStepCount = 0
+                var lastStepTime = Date()
+                pedometer.startUpdates(from: Date()) { [weak self] data, error in
+                    if let error {
+                        print("[SensorManager] CMPedometer error: \(error)")
+                        return
+                    }
+                    guard let self, let data else { return }
+                    let steps = data.numberOfSteps.intValue
+                    let now = Date()
+                    let elapsed = now.timeIntervalSince(lastStepTime)
+                    // Require at least 0.5 s and 1 new step to compute cadence
+                    if elapsed >= 0.5, steps > lastStepCount {
+                        let cadence = Double(steps - lastStepCount) / elapsed
+                        lastStepCount = steps
+                        lastStepTime = now
+                        Task { @MainActor in
+                            self.lastCadence = cadence
+                        }
+                    }
                 }
             }
         }
 
-        // Delay frame capture by 1 second to allow async sensors (altimeter, location) to
-        // deliver their first readings before we start recording frames.
         let interval = sampleRate.interval
-        Task { @MainActor [weak self] in
-            guard let self, self.isRecording else { return }
-            try? await Task.sleep(for: .seconds(1))
-            guard self.isRecording else { return }
+        Task {
+            // Wait for CMAltimeter's first reading (max 1.5 s) so pressure is
+            // populated from frame 1.  This is much shorter than the original
+            // 1-second hard delay and aborts early as soon as data arrives.
+            let deadline = Date.now.addingTimeInterval(1.5)
+            while self.lastPressure == nil, Date.now < deadline {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
             self.recordingTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.captureFrame() }
             }
@@ -105,10 +143,14 @@ final class SensorManager: NSObject {
         recordingTimer = nil
 
         motionManager.stopDeviceMotionUpdates()
+        motionManager.stopMagnetometerUpdates()
         altimeter.stopRelativeAltitudeUpdates()
         pedometer.stopUpdates()
         locationManager.stopUpdatingLocation()
         locationManager.stopUpdatingHeading()
+        lastMagX = nil
+        lastMagY = nil
+        lastMagZ = nil
 
         let session = GigRecordingSession(
             id: UUID(),
@@ -179,9 +221,9 @@ final class SensorManager: NSObject {
             gyroX: motion.map { $0.rotationRate.x * toDegrees },
             gyroY: motion.map { $0.rotationRate.y * toDegrees },
             gyroZ: motion.map { $0.rotationRate.z * toDegrees },
-            magX: motion.map { $0.magneticField.field.x },
-            magY: motion.map { $0.magneticField.field.y },
-            magZ: motion.map { $0.magneticField.field.z },
+            magX: lastMagX,
+            magY: lastMagY,
+            magZ: lastMagZ,
             cadence: lastCadence
         )
         frames.append(frame)
