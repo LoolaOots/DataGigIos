@@ -88,17 +88,37 @@ final class SensorManager: NSObject {
 
         // Pedometer cadence
         if CMPedometer.isCadenceAvailable() {
-            pedometer.startUpdates(from: Date()) { [weak self] data, _ in
-                guard let self, let data, let cadence = data.currentCadence else { return }
-                Task { @MainActor in
-                    self.lastCadence = cadence.doubleValue
+            let authStatus = CMPedometer.authorizationStatus()
+            if authStatus != .authorized {
+                print("[SensorManager] CMPedometer auth denied/restricted: \(authStatus.rawValue)")
+            } else {
+                pedometer.startUpdates(from: Date()) { [weak self] data, error in
+                    if let error {
+                        print("[SensorManager] CMPedometer error: \(error)")
+                        return
+                    }
+                    guard let self, let data else { return }
+                    print("[SensorManager] CMPedometer update — currentCadence: \(String(describing: data.currentCadence)), currentPace: \(String(describing: data.currentPace)), numberOfSteps: \(data.numberOfSteps)")
+                    guard let cadence = data.currentCadence else { return }
+                    Task { @MainActor in
+                        self.lastCadence = cadence.doubleValue
+                    }
                 }
             }
         }
 
         let interval = sampleRate.interval
-        recordingTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.captureFrame() }
+        Task {
+            // Wait for CMAltimeter's first reading (max 1.5 s) so pressure is
+            // populated from frame 1.  This is much shorter than the original
+            // 1-second hard delay and aborts early as soon as data arrives.
+            let deadline = Date.now.addingTimeInterval(1.5)
+            while self.lastPressure == nil, Date.now < deadline {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            self.recordingTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.captureFrame() }
+            }
         }
     }
 
