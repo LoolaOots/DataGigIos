@@ -86,22 +86,33 @@ final class SensorManager: NSObject {
             }
         }
 
-        // Pedometer cadence
+        // Pedometer cadence — computed from step deltas because currentCadence
+        // requires CoreMotion activity classification (often nil even when
+        // steps are being counted).
         if CMPedometer.isCadenceAvailable() {
             let authStatus = CMPedometer.authorizationStatus()
             if authStatus != .authorized {
                 print("[SensorManager] CMPedometer auth denied/restricted: \(authStatus.rawValue)")
             } else {
+                var lastStepCount = 0
+                var lastStepTime = Date()
                 pedometer.startUpdates(from: Date()) { [weak self] data, error in
                     if let error {
                         print("[SensorManager] CMPedometer error: \(error)")
                         return
                     }
                     guard let self, let data else { return }
-                    print("[SensorManager] CMPedometer update — currentCadence: \(String(describing: data.currentCadence)), currentPace: \(String(describing: data.currentPace)), numberOfSteps: \(data.numberOfSteps)")
-                    guard let cadence = data.currentCadence else { return }
-                    Task { @MainActor in
-                        self.lastCadence = cadence.doubleValue
+                    let steps = data.numberOfSteps.intValue
+                    let now = Date()
+                    let elapsed = now.timeIntervalSince(lastStepTime)
+                    // Require at least 0.5 s and 1 new step to compute cadence
+                    if elapsed >= 0.5, steps > lastStepCount {
+                        let cadence = Double(steps - lastStepCount) / elapsed
+                        lastStepCount = steps
+                        lastStepTime = now
+                        Task { @MainActor in
+                            self.lastCadence = cadence
+                        }
                     }
                 }
             }
